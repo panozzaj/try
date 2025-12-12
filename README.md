@@ -1,4 +1,4 @@
-# try-ink
+# try
 
 A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an interactive directory selector for experiments and scratch projects.
 
@@ -7,9 +7,8 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 ```bash
 bun install
 bun run build
+ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try
 ```
-
-Add `dist/cli.js` to your PATH (e.g., symlink to `~/bin/try-ink`).
 
 ## Shell integration
 
@@ -17,23 +16,16 @@ To enable `cd` functionality, add a wrapper. The binary can't change your shell'
 
 **Zsh/Bash** - add to `~/.zshrc`:
 ```bash
-eval "$(try-ink init)"
-```
-
-**Or** create `~/bin/try`:
-```bash
-#!/bin/bash
-output=$(try-ink cd "$@" 2>/dev/tty)
-[[ $? -eq 0 && -n "$output" ]] && eval "$output"
+eval "$(try init)"
 ```
 
 ## Usage
 
 ```bash
-try              # Interactive selector (with shell integration)
-try-ink new foo  # Create 2025-12-12-foo directory
-try-ink clone https://github.com/user/repo
-try-ink config   # Show configuration
+try              # Interactive selector
+try new foo      # Create 2025-12-12-foo directory
+try clone https://github.com/user/repo
+try config       # Show configuration
 ```
 
 ## Config
