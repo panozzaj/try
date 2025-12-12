@@ -137,6 +137,38 @@ describe("scoreEntries", () => {
     expect(matchedIndices.every((i) => i >= 11)).toBe(true)
   })
 
+  it("does not highlight wrong characters when query matches baseName", () => {
+    // Bug: searching "test" was highlighting "t" in "podcast" because
+    // Fuse.js returns indices for baseName which are offset incorrectly
+    const entries = [
+      createEntry("2025-12-11-podcast-audio-manip"),
+      createEntry("2025-12-12-test-new-thing"),
+    ]
+    const scored = scoreEntries(entries, "test")
+
+    // Should only match the entry with "test" in the name
+    const testEntry = scored.find((e) => e.name.includes("test"))
+    expect(testEntry).toBeDefined()
+
+    if (testEntry) {
+      const { name, matchedIndices } = testEntry
+      // All highlighted characters should be from the word "test"
+      const highlightedChars = matchedIndices.map((i) => name[i]).join("")
+      expect(highlightedChars).toBe("test")
+
+      // Should highlight indices 11-14 (the "test" part after date prefix)
+      expect(matchedIndices).toEqual([11, 12, 13, 14])
+    }
+
+    // The podcast entry should either not match, or have correct highlighting
+    const podcastEntry = scored.find((e) => e.name.includes("podcast"))
+    if (podcastEntry && podcastEntry.matchedIndices.length > 0) {
+      // If it matches, highlighted chars should not include "t" from "podcast"
+      const highlightedChars = podcastEntry.matchedIndices.map((i) => podcastEntry.name[i]).join("")
+      expect(highlightedChars).not.toContain("t")
+    }
+  })
+
   it("returns empty array for no matches", () => {
     const entries = [createEntry("2025-12-12-foo")]
     const scored = scoreEntries(entries, "xyz123")

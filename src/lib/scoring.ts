@@ -87,15 +87,26 @@ export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] 
     const combinedScore = fuzzyScore * 0.7 + timeScore * 0.3
 
     // Extract matched indices from Fuse results (only for "name" key)
+    // Only highlight the contiguous range that contains the full query
     const matchedIndices: number[] = []
     if (result.matches) {
       for (const match of result.matches) {
         // Only use indices from the "name" field, not "baseName"
-        if (match.key === "name" && match.indices) {
+        if (match.key === "name" && match.indices && match.value) {
+          const queryLower = query.toLowerCase()
+          // Find the range that contains the full query string
           for (const [start, end] of match.indices) {
-            for (let i = start; i <= end; i++) {
-              if (!matchedIndices.includes(i)) {
-                matchedIndices.push(i)
+            const slice = match.value.slice(start, end + 1).toLowerCase()
+            // Only include ranges that are at least as long as the query
+            // and contain the query as a substring
+            if (slice.length >= queryLower.length && slice.includes(queryLower)) {
+              // Find where in the slice the query actually starts
+              const queryStart = slice.indexOf(queryLower)
+              for (let i = 0; i < queryLower.length; i++) {
+                const idx = start + queryStart + i
+                if (!matchedIndices.includes(idx)) {
+                  matchedIndices.push(idx)
+                }
               }
             }
           }
