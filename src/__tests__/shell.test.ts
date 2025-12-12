@@ -9,7 +9,7 @@ describe("generateShellInit", () => {
   it("generates bash/zsh init script", () => {
     const script = generateShellInit("bash");
     expect(script).toContain("try()");
-    expect(script).toContain("try cd");
+    expect(script).toContain("try-ink cd");
     expect(script).toContain("eval");
   });
 
@@ -22,7 +22,7 @@ describe("generateShellInit", () => {
   it("generates fish init script", () => {
     const script = generateShellInit("fish");
     expect(script).toContain("function try");
-    expect(script).toContain("try cd");
+    expect(script).toContain("try-ink cd");
     expect(script).toContain("eval");
   });
 

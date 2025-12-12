@@ -7,7 +7,7 @@
     "try-ink": "./dist/cli.js"
   },
   "scripts": {
-    "build": "bun build src/cli.tsx --compile --outfile dist/try",
+    "build": "bun build src/cli.tsx --outdir dist --target node",
     "dev": "bun run src/cli.tsx",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

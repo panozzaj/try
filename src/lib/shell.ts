@@ -21,11 +21,11 @@ export function generateShellInit(shell: ShellType): string {
 
 function generateBashZshInit(): string {
   return `# try shell integration
-# Add to .bashrc/.zshrc: eval "$(try init)"
+# Add to .bashrc/.zshrc: eval "$(try-ink init)"
 
 try() {
   local output
-  output=$(command try cd "$@" 2>/dev/tty)
+  output=$(FORCE_COLOR=1 try-ink cd "$@" 2>/dev/tty)
   local exit_code=$?
 
   if [[ $exit_code -eq 0 && -n "$output" ]]; then
@@ -39,10 +39,10 @@ try() {
 
 function generateFishInit(): string {
   return `# try shell integration
-# Add to ~/.config/fish/config.fish: try init fish | source
+# Add to ~/.config/fish/config.fish: try-ink init fish | source
 
 function try
-  set -l output (command try cd $argv 2>/dev/tty)
+  set -l output (env FORCE_COLOR=1 try-ink cd $argv 2>/dev/tty)
   set -l exit_code $status
 
   if test $exit_code -eq 0 -a -n "$output"

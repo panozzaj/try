@@ -3,6 +3,7 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import * as fs from "node:fs";
+import * as tty from "node:tty";
 import { Selector } from "./components/Selector.js";
 import { InitActions } from "./components/InitActions.js";
 import { loadConfig, ensureTriesDir } from "./lib/config.js";
@@ -22,35 +23,24 @@ const config = loadConfig();
  * is redirected to /dev/tty. But our process still sees stderr as a pipe,
  * not a TTY. Ink requires a real TTY stream with resize event support.
  *
- * Solution: Open /dev/tty directly as a writable stream.
+ * Solution: Open /dev/tty directly and create a proper tty.WriteStream.
+ * This gives us a real TTY with all the methods Ink and cli-cursor expect.
  */
-function getTtyStream(): NodeJS.WriteStream {
+function getTtyStream(): tty.WriteStream {
   // If stderr is already a TTY (direct invocation), use it
-  if (process.stderr.isTTY) {
-    return process.stderr;
+  if (process.stderr?.isTTY) {
+    return process.stderr as tty.WriteStream;
   }
 
-  // Otherwise, open /dev/tty directly for TTY output
+  // Open /dev/tty directly and create a proper TTY WriteStream
   // This works when running via shell wrapper where stderr goes to /dev/tty
   try {
     const ttyFd = fs.openSync("/dev/tty", "w");
-    const ttyStream = fs.createWriteStream("", { fd: ttyFd }) as unknown as NodeJS.WriteStream;
-
-    // Add TTY properties that Ink expects
-    ttyStream.isTTY = true;
-
-    // Get terminal size from the TTY
-    const size = process.stdout.isTTY
-      ? [process.stdout.columns, process.stdout.rows]
-      : [80, 24]; // fallback
-
-    (ttyStream as any).columns = size[0];
-    (ttyStream as any).rows = size[1];
-
+    const ttyStream = new tty.WriteStream(ttyFd);
     return ttyStream;
   } catch {
     // Fallback to stderr if /dev/tty isn't available
-    return process.stderr;
+    return process.stderr as tty.WriteStream;
   }
 }
 
