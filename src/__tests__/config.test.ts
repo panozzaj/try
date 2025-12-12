@@ -16,9 +16,8 @@ describe("getConfigPaths", () => {
     const paths = getConfigPaths()
     const home = os.homedir()
 
-    expect(paths).toContain(path.join(home, ".tryrc"))
-    expect(paths).toContain(path.join(home, ".tryrc.yaml"))
-    expect(paths).toContain(path.join(home, ".config", "try", "config.yaml"))
+    expect(paths).toContain(path.join(home, ".tryrc.json"))
+    expect(paths).toContain(path.join(home, ".config", "try", "config.json"))
   })
 })
 
@@ -40,15 +39,17 @@ describe("expandPath", () => {
 })
 
 describe("parseConfig", () => {
-  it("parses valid YAML config", () => {
-    const yaml = `
-path: ~/src/tries
-callbacks:
-  after_create: git init "$1"
-templates:
-  laravel: laravel new "$1"
-`
-    const config = parseConfig(yaml)
+  it("parses valid JSON config", () => {
+    const json = JSON.stringify({
+      path: "~/src/tries",
+      callbacks: {
+        after_create: 'git init "$1"',
+      },
+      templates: {
+        laravel: 'laravel new "$1"',
+      },
+    })
+    const config = parseConfig(json)
 
     expect(config.path).toBe("~/src/tries")
     expect(config.callbacks?.after_create).toBe('git init "$1"')
@@ -56,22 +57,23 @@ templates:
   })
 
   it("handles empty config", () => {
-    const config = parseConfig("")
+    const config = parseConfig("{}")
     expect(config).toEqual({})
   })
 
-  it("handles invalid YAML by throwing", () => {
-    expect(() => parseConfig("not: valid: yaml: [")).toThrow()
+  it("handles invalid JSON by throwing", () => {
+    expect(() => parseConfig("not valid json")).toThrow()
   })
 
   it("handles null callbacks", () => {
-    const yaml = `
-path: ~/src/tries
-callbacks:
-  after_create: null
-  after_clone: ~/.config/try/hooks/after_clone
-`
-    const config = parseConfig(yaml)
+    const json = JSON.stringify({
+      path: "~/src/tries",
+      callbacks: {
+        after_create: null,
+        after_clone: "~/.config/try/hooks/after_clone",
+      },
+    })
+    const config = parseConfig(json)
 
     expect(config.callbacks?.after_create).toBeNull()
     expect(config.callbacks?.after_clone).toBe("~/.config/try/hooks/after_clone")

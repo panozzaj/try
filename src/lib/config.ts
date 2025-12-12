@@ -1,7 +1,6 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import * as os from "node:os"
-import * as yaml from "js-yaml"
 import type { TryConfig } from "../types.js"
 
 const DEFAULT_CONFIG: TryConfig = {
@@ -13,13 +12,7 @@ const DEFAULT_CONFIG: TryConfig = {
  */
 export function getConfigPaths(): string[] {
   const home = os.homedir()
-  return [
-    path.join(home, ".tryrc"),
-    path.join(home, ".tryrc.yaml"),
-    path.join(home, ".tryrc.yml"),
-    path.join(home, ".config", "try", "config.yaml"),
-    path.join(home, ".config", "try", "config.yml"),
-  ]
+  return [path.join(home, ".tryrc.json"), path.join(home, ".config", "try", "config.json")]
 }
 
 /**
@@ -38,7 +31,7 @@ export function findConfigFile(): string | null {
  * Parse a config file and return the configuration
  */
 export function parseConfig(content: string): Partial<TryConfig> {
-  const parsed = yaml.load(content)
+  const parsed = JSON.parse(content)
   if (typeof parsed !== "object" || parsed === null) {
     return {}
   }

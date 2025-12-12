@@ -7,7 +7,7 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 ```bash
 bun install
 bun run build
-ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try
+ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try-ink
 ```
 
 ## Shell integration
@@ -15,9 +15,12 @@ ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try
 To enable `cd` functionality, add a wrapper. The binary can't change your shell's directory directly.
 
 **Zsh/Bash** - add to `~/.zshrc`:
+
 ```bash
-eval "$(try init)"
+eval "$(try-ink init)"
 ```
+
+This creates a `try` shell function that wraps `try-ink`.
 
 ## Usage
 
@@ -30,16 +33,30 @@ try config       # Show configuration
 
 ## Config
 
-Create `~/.tryrc`:
+Default tries path: `~/src/tries`
 
-```yaml
-path: ~/src/tries
-callbacks:
-  after_create: |
-    git init "$1"
-  after_clone: ~/.config/try/hooks/after_clone
-templates:
-  rails: rails new "$1" --skip-git
+Create `~/.tryrc.json` to customize:
+
+```json
+{
+  "path": "~/src/tries",
+  "callbacks": {
+    "after_create": "git init \"$1\""
+  },
+  "init_actions": {
+    "git": {
+      "label": "git init",
+      "command": "git init \"$1\""
+    },
+    "jj": {
+      "label": "jj git init --colocate",
+      "command": "jj git init --colocate \"$1\""
+    }
+  },
+  "templates": {
+    "rails": "rails new \"$1\" --skip-git"
+  }
+}
 ```
 
 ## Development
