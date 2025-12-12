@@ -114,7 +114,14 @@ export function Selector({ config, onResult }: SelectorProps) {
       )}
 
       <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">↑↓ navigate enter select ctrl+d delete esc cancel</Text>
+        <Text color="cyan">↑↓</Text>
+        <Text color="gray"> navigate </Text>
+        <Text color="cyan">enter</Text>
+        <Text color="gray"> select </Text>
+        <Text color="cyan">ctrl+d</Text>
+        <Text color="gray"> delete </Text>
+        <Text color="cyan">esc</Text>
+        <Text color="gray"> cancel</Text>
       </Box>
     </Box>
   )
