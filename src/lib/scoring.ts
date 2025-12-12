@@ -89,11 +89,12 @@ export function scoreEntries(
     // Weight: 70% fuzzy, 30% time
     const combinedScore = fuzzyScore * 0.7 + timeScore * 0.3;
 
-    // Extract matched indices from Fuse results
+    // Extract matched indices from Fuse results (only for "name" key)
     const matchedIndices: number[] = [];
     if (result.matches) {
       for (const match of result.matches) {
-        if (match.indices) {
+        // Only use indices from the "name" field, not "baseName"
+        if (match.key === "name" && match.indices) {
           for (const [start, end] of match.indices) {
             for (let i = start; i <= end; i++) {
               if (!matchedIndices.includes(i)) {
