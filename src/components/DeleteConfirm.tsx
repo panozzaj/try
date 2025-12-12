@@ -9,23 +9,23 @@ interface DeleteConfirmProps {
 }
 
 export function DeleteConfirm({ entry, onConfirm, onCancel }: DeleteConfirmProps) {
-  const [selected, setSelected] = useState<"cancel" | "delete">("cancel")
+  const [input, setInput] = useState("")
 
-  useInput((input, key) => {
-    if (key.escape || input === "n" || input === "N") {
+  useInput((char, key) => {
+    if (key.escape) {
       onCancel()
-    } else if (input === "y" || input === "Y") {
-      onConfirm()
-    } else if (key.leftArrow || key.rightArrow || input === "h" || input === "l") {
-      setSelected((prev) => (prev === "cancel" ? "delete" : "cancel"))
     } else if (key.return) {
-      if (selected === "delete") {
+      if (input === entry.name) {
         onConfirm()
-      } else {
-        onCancel()
       }
+    } else if (key.backspace || key.delete) {
+      setInput(input.slice(0, -1))
+    } else if (char && !key.ctrl && !key.meta) {
+      setInput(input + char)
     }
   })
+
+  const matches = input === entry.name
 
   return (
     <Box flexDirection="column" paddingY={1}>
@@ -40,20 +40,15 @@ export function DeleteConfirm({ entry, onConfirm, onCancel }: DeleteConfirmProps
       <Box paddingLeft={2}>
         <Text color="gray">{entry.path}</Text>
       </Box>
-      <Box marginTop={1} gap={2}>
-        <Box>
-          <Text color={selected === "cancel" ? "cyan" : "gray"} bold={selected === "cancel"}>
-            {selected === "cancel" ? "[Cancel]" : " Cancel "}
-          </Text>
-        </Box>
-        <Box>
-          <Text color={selected === "delete" ? "red" : "gray"} bold={selected === "delete"}>
-            {selected === "delete" ? "[Delete]" : " Delete "}
-          </Text>
-        </Box>
+      <Box marginTop={1}>
+        <Text>Type directory name to confirm: </Text>
+      </Box>
+      <Box paddingLeft={2}>
+        <Text color={matches ? "green" : "yellow"}>{input}</Text>
+        <Text color="cyan">█</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color="gray">y/n or ←→ to select, enter to confirm</Text>
+        <Text color="gray">{matches ? "Press enter to delete" : "esc to cancel"}</Text>
       </Box>
     </Box>
   )
