@@ -12,7 +12,7 @@ bun install
 
 ```bash
 echo '#!/usr/bin/env bash
-exec bun run '"$(pwd)"'/src/cli.tsx "$@"' > ~/.local/bin/try-ink
+cd '"$(pwd)"' && exec npx tsx src/cli.tsx "$@"' > ~/.local/bin/try-ink
 chmod +x ~/.local/bin/try-ink
 ```
 

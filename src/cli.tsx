@@ -23,25 +23,25 @@ const config = loadConfig()
  * is redirected to /dev/tty. But our process still sees stderr as a pipe,
  * not a TTY. Ink requires a real TTY stream with resize event support.
  *
- * Solution: Open /dev/tty directly and create a proper tty.WriteStream.
- * This gives us a real TTY with all the methods Ink and cli-cursor expect.
+ * Solution: Always try to open /dev/tty directly first for reliable TTY access.
  */
-function getTtyStream(): tty.WriteStream {
-  // If stderr is already a TTY (direct invocation), use it
-  if (process.stderr?.isTTY) {
-    return process.stderr as tty.WriteStream
-  }
-
-  // Open /dev/tty directly and create a proper TTY WriteStream
-  // This works when running via shell wrapper where stderr goes to /dev/tty
+function getTtyStream(): tty.WriteStream | undefined {
+  // Try opening /dev/tty directly - works in shell wrapper and direct terminal
   try {
     const ttyFd = fs.openSync("/dev/tty", "w")
     const ttyStream = new tty.WriteStream(ttyFd)
     return ttyStream
   } catch {
-    // Fallback to stderr if /dev/tty isn't available
+    // /dev/tty not available (e.g., running in non-interactive context)
+  }
+
+  // Fall back to stderr if it's a TTY
+  if (process.stderr?.isTTY) {
     return process.stderr as tty.WriteStream
   }
+
+  // No TTY available - return undefined and let Ink use defaults
+  return undefined
 }
 
 /**
