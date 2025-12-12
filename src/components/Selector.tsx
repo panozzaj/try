@@ -99,7 +99,7 @@ export function Selector({ config, onResult }: SelectorProps) {
 
   return (
     <Box flexDirection="column">
-      <SearchInput value={query} onChange={handleQueryChange} placeholder="Search tries..." />
+      <SearchInput value={query} onChange={handleQueryChange} />
 
       <Box marginTop={1}>
         <DirList entries={scoredEntries} selectedIndex={selectedIndex} />

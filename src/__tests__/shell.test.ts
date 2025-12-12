@@ -7,6 +7,8 @@ describe("generateShellInit", () => {
     expect(script).toContain("try()")
     expect(script).toContain("try-ink cd")
     expect(script).toContain("eval")
+    // Help flags should pass through without eval
+    expect(script).toContain("-h|--help")
   })
 
   it("generates zsh init script (same as bash)", () => {
@@ -20,6 +22,8 @@ describe("generateShellInit", () => {
     expect(script).toContain("function try")
     expect(script).toContain("try-ink cd")
     expect(script).toContain("eval")
+    // Help flags should pass through without eval
+    expect(script).toContain("-h --help")
   })
 
   it("throws for unsupported shell", () => {

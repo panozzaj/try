@@ -24,6 +24,14 @@ function generateBashZshInit(): string {
 # Add to .bashrc/.zshrc: eval "$(try-ink init)"
 
 try() {
+  # Pass through help/version flags directly (don't eval their output)
+  case "$1" in
+    -h|--help|-V|--version)
+      try-ink "$@"
+      return $?
+      ;;
+  esac
+
   local output
   output=$(FORCE_COLOR=1 try-ink cd "$@" 2>/dev/tty)
   local exit_code=$?
@@ -42,6 +50,13 @@ function generateFishInit(): string {
 # Add to ~/.config/fish/config.fish: try-ink init fish | source
 
 function try
+  # Pass through help/version flags directly (don't eval their output)
+  switch $argv[1]
+    case -h --help -V --version
+      try-ink $argv
+      return $status
+  end
+
   set -l output (env FORCE_COLOR=1 try-ink cd $argv 2>/dev/tty)
   set -l exit_code $status
 
