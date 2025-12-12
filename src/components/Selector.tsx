@@ -24,6 +24,11 @@ export function Selector({ config, onResult }: SelectorProps) {
   const entries = useMemo(() => loadTries(config), [config])
   const scoredEntries = useMemo(() => scoreEntries(entries, query), [entries, query])
 
+  // When there's a query, add "Create new" as the last option
+  const showCreateOption = query.trim().length > 0
+  const totalItems = scoredEntries.length + (showCreateOption ? 1 : 0)
+  const createNewIndex = showCreateOption ? scoredEntries.length : -1
+
   // Reset selection when query changes
   const handleQueryChange = (newQuery: string) => {
     setQuery(newQuery)
@@ -35,24 +40,24 @@ export function Selector({ config, onResult }: SelectorProps) {
     (input, key) => {
       if (mode !== "search") return
 
-      // Navigation
+      // Navigation - wrap around when at boundaries
       if (key.downArrow || (key.ctrl && input === "n") || input === "j") {
-        setSelectedIndex((prev) => Math.min(prev + 1, scoredEntries.length - 1))
+        setSelectedIndex((prev) => (prev + 1) % totalItems)
       } else if (key.upArrow || (key.ctrl && input === "p") || input === "k") {
-        setSelectedIndex((prev) => Math.max(prev - 1, 0))
+        setSelectedIndex((prev) => (prev - 1 + totalItems) % totalItems)
       }
       // Select current entry
       else if (key.return) {
-        if (scoredEntries.length > 0) {
-          onResult({ action: "select", entry: scoredEntries[selectedIndex] })
-        } else if (query.trim()) {
-          // Create new directory with query as name
+        if (selectedIndex === createNewIndex) {
+          // Create new directory
           onResult({ action: "create", name: createDirName(query) })
+        } else if (scoredEntries.length > 0 && selectedIndex < scoredEntries.length) {
+          onResult({ action: "select", entry: scoredEntries[selectedIndex] })
         }
       }
       // Delete entry
       else if (input === "d" && key.ctrl) {
-        if (scoredEntries.length > 0) {
+        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
           setDeleteTarget(scoredEntries[selectedIndex])
           setMode("delete")
         }
@@ -89,7 +94,7 @@ export function Selector({ config, onResult }: SelectorProps) {
     )
   }
 
-  const showCreateHint = query.trim() && scoredEntries.length === 0
+  const isCreateSelected = selectedIndex === createNewIndex
 
   return (
     <Box flexDirection="column">
@@ -99,9 +104,12 @@ export function Selector({ config, onResult }: SelectorProps) {
         <DirList entries={scoredEntries} selectedIndex={selectedIndex} />
       </Box>
 
-      {showCreateHint && (
+      {showCreateOption && (
         <Box marginTop={1} paddingLeft={2}>
-          <Text color="green">Press Enter to create: {createDirName(query)}</Text>
+          <Text color={isCreateSelected ? "cyan" : "gray"}>{isCreateSelected ? "● " : "  "}</Text>
+          <Text color={isCreateSelected ? "green" : "gray"}>
+            Create new: {createDirName(query)}
+          </Text>
         </Box>
       )}
 
