@@ -2,6 +2,21 @@
 
 A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an interactive directory selector for experiments and scratch projects.
 
+## Features
+
+- fzf-style subsequence filtering
+- Time-based sorting (recent first)
+- Match highlighting
+- Readline keybindings (Ctrl-A/E/B/F/K/U/W)
+- Git clone and worktree support
+- Configurable callbacks and templates
+
+**New in try-ink:**
+
+- Type directory name to confirm deletion (safer than y/n)
+- Init actions menu after creating directories
+- JSON config format
+
 ## Install
 
 ```bash
