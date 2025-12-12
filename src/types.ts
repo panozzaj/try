@@ -8,6 +8,18 @@ export interface TryConfig {
   callbacks?: CallbacksConfig;
   /** Custom templates for project scaffolding */
   templates?: Record<string, string>;
+  /** Init actions shown after creating a new directory */
+  init_actions?: Record<string, InitAction>;
+}
+
+/**
+ * An init action that can be selected after creating a directory
+ */
+export interface InitAction {
+  /** Display label for the action */
+  label: string;
+  /** Shell command to run ($1 = directory path) */
+  command: string;
 }
 
 /**

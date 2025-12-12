@@ -152,3 +152,51 @@ export async function runBeforeDelete(
 
   return { proceed: true };
 }
+
+/**
+ * Run an init action command
+ */
+export async function runInitAction(
+  command: string,
+  dirPath: string
+): Promise<CallbackResult> {
+  return new Promise((resolve) => {
+    const child = spawn("/bin/bash", ["-c", command, "--", dirPath], {
+      cwd: dirPath,
+      env: {
+        ...process.env,
+        TRY_DIR: dirPath,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", (error) => {
+      resolve({
+        success: false,
+        exitCode: 1,
+        stdout,
+        stderr: stderr + error.message,
+      });
+    });
+
+    child.on("close", (code) => {
+      resolve({
+        success: code === 0,
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}

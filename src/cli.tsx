@@ -3,15 +3,49 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import { Selector } from "./components/Selector.js";
+import { InitActions } from "./components/InitActions.js";
 import { loadConfig, ensureTriesDir } from "./lib/config.js";
 import { createTryDir, deleteTryDir, touchTryDir, getTryPath } from "./lib/tries.js";
-import { executeCallback, runBeforeDelete } from "./lib/callbacks.js";
+import { executeCallback, runBeforeDelete, runInitAction } from "./lib/callbacks.js";
 import { cloneRepo, createWorktree, isInGitRepo } from "./lib/git.js";
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js";
 import { createDirName } from "./lib/scoring.js";
-import type { SelectorResult, ShellType } from "./types.js";
+import type { SelectorResult, ShellType, TryConfig } from "./types.js";
 
 const config = loadConfig();
+
+/**
+ * Show init actions selector and run selected actions
+ */
+async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
+  if (!cfg.init_actions || Object.keys(cfg.init_actions).length === 0) {
+    return;
+  }
+
+  return new Promise((resolve) => {
+    const { unmount } = render(
+      <InitActions
+        actions={cfg.init_actions!}
+        onConfirm={async (selectedKeys) => {
+          unmount();
+          for (const key of selectedKeys) {
+            const action = cfg.init_actions![key];
+            console.error(`Running: ${action.label}`);
+            const result = await runInitAction(action.command, dirPath);
+            if (!result.success) {
+              console.error(`  Failed: ${result.stderr}`);
+            }
+          }
+          resolve();
+        }}
+        onSkip={() => {
+          unmount();
+          resolve();
+        }}
+      />
+    );
+  });
+}
 
 /**
  * Handle the result from the selector UI
@@ -30,6 +64,8 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
 
     case "create": {
       const fullPath = createTryDir(config, result.name);
+      // Show init actions selector
+      await runInitActions(config, fullPath);
       // Run after_create callback
       await executeCallback(config, "after_create", fullPath);
       // Output cd command
@@ -97,11 +133,17 @@ program
 program
   .command("new [name]")
   .description("Create a new try directory")
-  .action(async (name?: string) => {
+  .option("--skip-init", "Skip init actions prompt")
+  .action(async (name: string | undefined, options: { skipInit?: boolean }) => {
     ensureTriesDir(config);
 
     const dirName = createDirName(name || "");
     const fullPath = createTryDir(config, dirName);
+
+    // Show init actions selector (unless skipped)
+    if (!options.skipInit) {
+      await runInitActions(config, fullPath);
+    }
 
     // Run after_create callback
     await executeCallback(config, "after_create", fullPath);
@@ -231,8 +273,16 @@ program
   .action(() => {
     console.log("Configuration:");
     console.log(`  Path: ${config.path}`);
+    console.log(`  Init Actions:`);
+    if (config.init_actions && Object.keys(config.init_actions).length > 0) {
+      for (const [key, action] of Object.entries(config.init_actions)) {
+        console.log(`    ${key}: ${action.label}`);
+      }
+    } else {
+      console.log("    (none)");
+    }
     console.log(`  Callbacks:`);
-    if (config.callbacks) {
+    if (config.callbacks && Object.keys(config.callbacks).some(k => config.callbacks![k as keyof typeof config.callbacks])) {
       for (const [hook, script] of Object.entries(config.callbacks)) {
         if (script) {
           const preview = script.length > 50 ? script.slice(0, 50) + "..." : script;
@@ -243,7 +293,7 @@ program
       console.log("    (none)");
     }
     console.log(`  Templates:`);
-    if (config.templates) {
+    if (config.templates && Object.keys(config.templates).length > 0) {
       for (const name of Object.keys(config.templates)) {
         console.log(`    ${name}`);
       }
