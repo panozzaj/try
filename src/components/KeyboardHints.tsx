@@ -15,9 +15,9 @@ export function KeyboardHints({ hints }: KeyboardHintsProps) {
     <Box borderStyle="single" borderColor="gray" paddingX={1}>
       {hints.map((hint, index) => (
         <React.Fragment key={hint.key}>
-          <Text color="cyan">{hint.key}</Text>
-          <Text color="gray"> {hint.action}</Text>
-          {index < hints.length - 1 && <Text color="gray"> </Text>}
+          <Text color="cyan"> {hint.key}</Text>
+          <Text color="gray"> {hint.action} </Text>
+          {index < hints.length - 1 && <Text color="gray">│</Text>}
         </React.Fragment>
       ))}
     </Box>
