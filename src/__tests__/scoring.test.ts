@@ -122,6 +122,24 @@ describe("scoreEntries", () => {
     expect(scored[0].matchedIndices.length).toBeGreaterThan(0);
   });
 
+  it("matched indices point to correct characters in name", () => {
+    const entries = [createEntry("2025-12-12-my-project")];
+    const scored = scoreEntries(entries, "proj");
+
+    expect(scored.length).toBe(1);
+    const { name, matchedIndices } = scored[0];
+
+    // Highlighted characters should spell out the search query
+    const highlightedChars = matchedIndices.map((i) => name[i]).join("");
+    expect(highlightedChars).toContain("proj");
+
+    // Indices should be within the name's bounds
+    expect(matchedIndices.every((i) => i >= 0 && i < name.length)).toBe(true);
+
+    // Indices should not point to the date prefix (first 10 chars)
+    expect(matchedIndices.every((i) => i >= 11)).toBe(true);
+  });
+
   it("returns empty array for no matches", () => {
     const entries = [createEntry("2025-12-12-foo")];
     const scored = scoreEntries(entries, "xyz123");
