@@ -53,10 +53,10 @@ This creates a `try` shell function that wraps `try-ink`.
 ## Usage
 
 ```bash
-try              # Interactive selector
-try new foo      # Create 2025-12-12-foo directory
-try clone https://github.com/user/repo
-try config       # Show configuration
+try                                    # Interactive selector
+try foo                                # Selector with "foo" pre-filled
+try https://github.com/user/repo       # Clone repository
+try config                             # Show configuration
 ```
 
 ## Config

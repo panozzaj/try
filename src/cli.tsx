@@ -1,55 +1,52 @@
 #!/usr/bin/env node
 import React from "react"
 import { render } from "ink"
-import { program } from "commander"
 import * as fs from "node:fs"
 import * as tty from "node:tty"
 import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
 import { loadConfig, ensureTriesDir } from "./lib/config.js"
-import { createTryDir, deleteTryDir, touchTryDir, getTryPath } from "./lib/tries.js"
+import { createTryDir, deleteTryDir, touchTryDir } from "./lib/tries.js"
 import { executeCallback, runBeforeDelete, runInitAction } from "./lib/callbacks.js"
-import { cloneRepo, createWorktree, isInGitRepo } from "./lib/git.js"
+import { cloneRepo } from "./lib/git.js"
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
-import { createDirName } from "./lib/scoring.js"
 import type { SelectorResult, ShellType, TryConfig } from "./types.js"
 
 const config = loadConfig()
 
 /**
+ * Check if a string looks like a git URL
+ */
+function isGitUrl(str: string): boolean {
+  return (
+    str.startsWith("https://") ||
+    str.startsWith("git@") ||
+    str.includes("github.com") ||
+    str.includes("gitlab.com") ||
+    str.endsWith(".git")
+  )
+}
+
+/**
  * Get a TTY stream for Ink rendering.
- *
- * When running via shell wrapper, stdout is captured for eval and stderr
- * is redirected to /dev/tty. But our process still sees stderr as a pipe,
- * not a TTY. Ink requires a real TTY stream with resize event support.
- *
- * Solution: Always try to open /dev/tty directly first for reliable TTY access.
  */
 function getTtyStream(): tty.WriteStream | undefined {
-  // Try opening /dev/tty directly - works in shell wrapper and direct terminal
   try {
     const ttyFd = fs.openSync("/dev/tty", "w")
-    const ttyStream = new tty.WriteStream(ttyFd)
-    return ttyStream
+    return new tty.WriteStream(ttyFd)
   } catch {
-    // /dev/tty not available (e.g., running in non-interactive context)
+    // /dev/tty not available
   }
 
-  // Fall back to stderr if it's a TTY
   if (process.stderr?.isTTY) {
     return process.stderr as tty.WriteStream
   }
 
-  // No TTY available - return undefined and let Ink use defaults
   return undefined
 }
 
 /**
  * Show init actions selector and run selected actions
- *
- * Note: We render to stderr because stdout is captured by the shell wrapper.
- * The shell function runs `try cd` and evals the stdout (cd command).
- * UI must go to stderr, which gets redirected to /dev/tty by the wrapper.
  */
 async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
   if (!cfg.init_actions || Object.keys(cfg.init_actions).length === 0) {
@@ -90,28 +87,21 @@ async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
 async function handleSelectorResult(result: SelectorResult): Promise<void> {
   switch (result.action) {
     case "select": {
-      // Touch to update access time
       touchTryDir(result.entry.path)
-      // Run after_select callback
       await executeCallback(config, "after_select", result.entry.path)
-      // Output cd command for shell integration
       console.log(generateCdCommand(result.entry.path))
       break
     }
 
     case "create": {
       const fullPath = createTryDir(config, result.name)
-      // Show init actions selector
       await runInitActions(config, fullPath)
-      // Run after_create callback
       await executeCallback(config, "after_create", fullPath)
-      // Output cd command
       console.log(generateCdCommand(fullPath))
       break
     }
 
     case "delete": {
-      // Run before_delete callback (can abort)
       const { proceed, message } = await runBeforeDelete(config, result.entry.path)
 
       if (!proceed) {
@@ -125,23 +115,21 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
     }
 
     case "cancel":
-      // Do nothing
       break
   }
 }
 
 /**
  * Run the interactive selector
- *
- * Renders to a TTY stream - see getTtyStream comment for explanation.
  */
-function runSelector(): Promise<SelectorResult> {
+function runSelector(initialQuery: string = ""): Promise<SelectorResult> {
   const ttyStream = getTtyStream()
 
   return new Promise((resolve) => {
     const { unmount } = render(
       <Selector
         config={config}
+        initialQuery={initialQuery}
         onResult={(result) => {
           unmount()
           resolve(result)
@@ -152,201 +140,119 @@ function runSelector(): Promise<SelectorResult> {
   })
 }
 
-// CLI definition
-program
-  .name("try-ink")
-  .description("Interactive directory selector for experiments and scratch projects")
-  .version("0.1.0")
+/**
+ * Clone a git repository
+ */
+async function handleClone(url: string): Promise<void> {
+  ensureTriesDir(config)
 
-// Default command: interactive selector (called via shell wrapper as 'cd')
-program
-  .command("cd", { isDefault: true })
-  .description("Interactive directory selector")
-  .action(async () => {
-    ensureTriesDir(config)
-    const result = await runSelector()
-    await handleSelectorResult(result)
-  })
+  const result = await cloneRepo(config, { url })
 
-// Create a new directory
-program
-  .command("new [name]")
-  .description("Create a new try directory")
-  .option("--skip-init", "Skip init actions prompt")
-  .action(async (name: string | undefined, options: { skipInit?: boolean }) => {
-    ensureTriesDir(config)
+  if (!result.success) {
+    console.error(`Clone failed: ${result.error}`)
+    process.exit(1)
+  }
 
-    const dirName = createDirName(name || "")
-    const fullPath = createTryDir(config, dirName)
+  await executeCallback(config, "after_clone", result.path)
+  console.log(generateCdCommand(result.path))
+}
 
-    // Show init actions selector (unless skipped)
-    if (!options.skipInit) {
-      await runInitActions(config, fullPath)
+/**
+ * Show configuration
+ */
+function showConfig(): void {
+  console.log("Configuration:")
+  console.log(`  Path: ${config.path}`)
+  console.log(`  Init Actions:`)
+  if (config.init_actions && Object.keys(config.init_actions).length > 0) {
+    for (const [key, action] of Object.entries(config.init_actions)) {
+      console.log(`    ${key}: ${action.label}`)
     }
-
-    // Run after_create callback
-    await executeCallback(config, "after_create", fullPath)
-
-    // Output cd command
-    console.log(generateCdCommand(fullPath))
-  })
-
-// Clone a git repository
-program
-  .command("clone <url>")
-  .description("Clone a git repository into a new try directory")
-  .option("-n, --name <name>", "Custom name for the directory")
-  .option("-s, --shallow", "Create a shallow clone")
-  .action(async (url: string, options: { name?: string; shallow?: boolean }) => {
-    ensureTriesDir(config)
-
-    const result = await cloneRepo(config, {
-      url,
-      name: options.name,
-      shallow: options.shallow,
-    })
-
-    if (!result.success) {
-      console.error(`Clone failed: ${result.error}`)
-      process.exit(1)
+  } else {
+    console.log("    (none)")
+  }
+  console.log(`  Callbacks:`)
+  if (
+    config.callbacks &&
+    Object.keys(config.callbacks).some((k) => config.callbacks![k as keyof typeof config.callbacks])
+  ) {
+    for (const [hook, script] of Object.entries(config.callbacks)) {
+      if (script) {
+        const preview = script.length > 50 ? script.slice(0, 50) + "..." : script
+        console.log(`    ${hook}: ${preview.replace(/\n/g, "\\n")}`)
+      }
     }
+  } else {
+    console.log("    (none)")
+  }
+}
 
-    // Run after_clone callback
-    await executeCallback(config, "after_clone", result.path)
+/**
+ * Show help
+ */
+function showHelp(): void {
+  console.log(`try-ink - Interactive directory selector for experiments
 
-    // Output cd command
-    console.log(generateCdCommand(result.path))
-  })
+Usage:
+  try                     Interactive selector
+  try <query>             Selector with search pre-filled
+  try <git-url>           Clone repository into tries
+  try init [shell]        Output shell integration script
+  try config              Show configuration
 
-// Create a git worktree
-program
-  .command("worktree <branch>")
-  .description("Create a git worktree in a new try directory")
-  .option("-n, --name <name>", "Custom name for the directory")
-  .option("-b, --create-branch", "Create a new branch")
-  .action(async (branch: string, options: { name?: string; createBranch?: boolean }) => {
-    // Must be in a git repo
-    if (!(await isInGitRepo())) {
-      console.error("Not in a git repository")
-      process.exit(1)
-    }
+Keyboard:
+  ↑↓          Navigate
+  Enter       Select / Create new
+  Ctrl-D      Delete (requires typing name to confirm)
+  Esc         Cancel
 
-    ensureTriesDir(config)
+Shell integration:
+  eval "$(try-ink init)"  Add to ~/.zshrc or ~/.bashrc`)
+}
 
-    const result = await createWorktree(config, {
-      branch,
-      name: options.name,
-      createBranch: options.createBranch,
-    })
+// Main
+async function main(): Promise<void> {
+  const args = process.argv.slice(2)
 
-    if (!result.success) {
-      console.error(`Worktree creation failed: ${result.error}`)
-      process.exit(1)
-    }
+  // Handle flags
+  if (args.includes("-h") || args.includes("--help")) {
+    showHelp()
+    return
+  }
 
-    // Run after_worktree callback
-    await executeCallback(config, "after_worktree", result.path)
+  if (args.includes("-V") || args.includes("--version")) {
+    console.log("0.1.0")
+    return
+  }
 
-    // Output cd command
-    console.log(generateCdCommand(result.path))
-  })
+  // Handle commands
+  const command = args[0]
 
-// Shell init command
-program
-  .command("init [shell]")
-  .description("Output shell integration script")
-  .action((shell?: string) => {
-    const shellType: ShellType = (shell as ShellType) || detectShell()
+  if (command === "init") {
+    const shellType: ShellType = (args[1] as ShellType) || detectShell()
     console.log(generateShellInit(shellType))
-  })
+    return
+  }
 
-// Run a template
-program
-  .command("template <name> [project-name]")
-  .description("Create a new project using a template")
-  .action(async (templateName: string, projectName?: string) => {
-    ensureTriesDir(config)
+  if (command === "config") {
+    showConfig()
+    return
+  }
 
-    const template = config.templates?.[templateName]
-    if (!template) {
-      console.error(`Template not found: ${templateName}`)
-      console.error(
-        "Available templates:",
-        Object.keys(config.templates || {}).join(", ") || "(none)"
-      )
-      process.exit(1)
-    }
+  // Git URL → clone
+  if (command && isGitUrl(command)) {
+    await handleClone(command)
+    return
+  }
 
-    const dirName = createDirName(projectName || templateName)
-    const fullPath = getTryPath(config, dirName)
+  // Default: interactive selector (with optional initial query)
+  ensureTriesDir(config)
+  const initialQuery = args.join(" ")
+  const result = await runSelector(initialQuery)
+  await handleSelectorResult(result)
+}
 
-    // Create directory
-    createTryDir(config, dirName)
-
-    // Run template script
-    const { spawn } = await import("node:child_process")
-    const child = spawn("/bin/bash", ["-c", template, "--", fullPath], {
-      cwd: fullPath,
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        TRY_DIR: fullPath,
-      },
-    })
-
-    child.on("close", async (code) => {
-      if (code !== 0) {
-        console.error(`Template script failed with code ${code}`)
-        process.exit(code || 1)
-      }
-
-      // Run after_create callback
-      await executeCallback(config, "after_create", fullPath)
-
-      // Output cd command
-      console.log(generateCdCommand(fullPath))
-    })
-  })
-
-// List configuration
-program
-  .command("config")
-  .description("Show current configuration")
-  .action(() => {
-    console.log("Configuration:")
-    console.log(`  Path: ${config.path}`)
-    console.log(`  Init Actions:`)
-    if (config.init_actions && Object.keys(config.init_actions).length > 0) {
-      for (const [key, action] of Object.entries(config.init_actions)) {
-        console.log(`    ${key}: ${action.label}`)
-      }
-    } else {
-      console.log("    (none)")
-    }
-    console.log(`  Callbacks:`)
-    if (
-      config.callbacks &&
-      Object.keys(config.callbacks).some(
-        (k) => config.callbacks![k as keyof typeof config.callbacks]
-      )
-    ) {
-      for (const [hook, script] of Object.entries(config.callbacks)) {
-        if (script) {
-          const preview = script.length > 50 ? script.slice(0, 50) + "..." : script
-          console.log(`    ${hook}: ${preview.replace(/\n/g, "\\n")}`)
-        }
-      }
-    } else {
-      console.log("    (none)")
-    }
-    console.log(`  Templates:`)
-    if (config.templates && Object.keys(config.templates).length > 0) {
-      for (const name of Object.keys(config.templates)) {
-        console.log(`    ${name}`)
-      }
-    } else {
-      console.log("    (none)")
-    }
-  })
-
-program.parse()
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

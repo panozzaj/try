@@ -11,12 +11,13 @@ import { KeyboardHints } from "./KeyboardHints.js"
 interface SelectorProps {
   config: TryConfig
   onResult: (result: SelectorResult) => void
+  initialQuery?: string
 }
 
 type Mode = "search" | "delete"
 
-export function Selector({ config, onResult }: SelectorProps) {
-  const [query, setQuery] = useState("")
+export function Selector({ config, onResult, initialQuery = "" }: SelectorProps) {
+  const [query, setQuery] = useState(initialQuery)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [mode, setMode] = useState<Mode>("search")
   const [deleteTarget, setDeleteTarget] = useState<TryEntry | null>(null)

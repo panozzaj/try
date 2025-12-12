@@ -5,10 +5,10 @@ describe("generateShellInit", () => {
   it("generates bash/zsh init script", () => {
     const script = generateShellInit("bash")
     expect(script).toContain("try()")
-    expect(script).toContain("try-ink cd")
+    expect(script).toContain("try-ink")
     expect(script).toContain("eval")
-    // Help flags should pass through without eval
-    expect(script).toContain("-h|--help")
+    // Help/config/init should pass through without eval
+    expect(script).toContain("config|init")
   })
 
   it("generates zsh init script (same as bash)", () => {
@@ -20,10 +20,10 @@ describe("generateShellInit", () => {
   it("generates fish init script", () => {
     const script = generateShellInit("fish")
     expect(script).toContain("function try")
-    expect(script).toContain("try-ink cd")
+    expect(script).toContain("try-ink")
     expect(script).toContain("eval")
-    // Help flags should pass through without eval
-    expect(script).toContain("-h --help")
+    // Help/config/init should pass through without eval
+    expect(script).toContain("config init")
   })
 
   it("throws for unsupported shell", () => {
