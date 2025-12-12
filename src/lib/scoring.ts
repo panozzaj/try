@@ -1,4 +1,4 @@
-import Fuse, { type IFuseOptions } from "fuse.js"
+import { Fzf, type FzfResultItem } from "fzf"
 import type { TryEntry, ScoredEntry } from "../types.js"
 
 /**
@@ -43,19 +43,7 @@ export function calculateTimeScore(modifiedAt: Date): number {
 }
 
 /**
- * Fuse.js options for fuzzy matching
- */
-const FUSE_OPTIONS: IFuseOptions<TryEntry> = {
-  keys: ["name", "baseName"],
-  threshold: 0.6, // Allow abbreviation matches like "sr" → "spaced-repetition"
-  includeScore: true,
-  includeMatches: true,
-  ignoreLocation: true,
-  minMatchCharLength: 1,
-}
-
-/**
- * Score and sort entries based on fuzzy search and time
+ * Score and sort entries based on fzf search and time
  */
 export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] {
   if (!query.trim()) {
@@ -74,74 +62,31 @@ export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] 
       .sort((a, b) => b.score - a.score)
   }
 
-  const fuse = new Fuse(entries, FUSE_OPTIONS)
-  const results = fuse.search(query)
+  // Use fzf for subsequence matching (like the real fzf CLI)
+  const fzf = new Fzf(entries, {
+    selector: (entry) => entry.name,
+  })
+  const results = fzf.find(query)
 
-  return results.map((result) => {
-    // Fuse score is 0 for perfect match, 1 for no match - invert it
-    const fuzzyScore = 1 - (result.score ?? 0)
+  return results.map((result: FzfResultItem<TryEntry>) => {
+    // fzf score is higher = better match (opposite of Fuse.js)
+    // Normalize to 0-1 range (typical scores range from 0 to ~100+)
+    const fuzzyScore = Math.min(1, result.score / 100)
     const timeScore = calculateTimeScore(result.item.modifiedAt)
 
     // Combine scores: fuzzy match is primary, time is secondary
     // Weight: 70% fuzzy, 30% time
     const combinedScore = fuzzyScore * 0.7 + timeScore * 0.3
 
-    // Extract matched indices from Fuse results (only for "name" key)
-    const matchedIndices: number[] = []
-    if (result.matches) {
-      for (const match of result.matches) {
-        // Only use indices from the "name" field, not "baseName"
-        if (match.key === "name" && match.indices && match.value) {
-          const queryLower = query.toLowerCase()
-
-          // First, try to find a contiguous range containing the full query
-          let foundExactMatch = false
-          for (const [start, end] of match.indices) {
-            const slice = match.value.slice(start, end + 1).toLowerCase()
-            if (slice.length >= queryLower.length && slice.includes(queryLower)) {
-              // Found exact substring match - highlight only the query chars
-              const queryStart = slice.indexOf(queryLower)
-              for (let i = 0; i < queryLower.length; i++) {
-                const idx = start + queryStart + i
-                if (!matchedIndices.includes(idx)) {
-                  matchedIndices.push(idx)
-                }
-              }
-              foundExactMatch = true
-            }
-          }
-
-          // If no exact match, use individual character matches (for abbreviations)
-          // Only include if total matched chars equals query length
-          if (!foundExactMatch) {
-            const abbrevIndices: number[] = []
-            for (const [start, end] of match.indices) {
-              for (let i = start; i <= end; i++) {
-                abbrevIndices.push(i)
-              }
-            }
-            // Verify the matched characters spell out the query
-            if (abbrevIndices.length === queryLower.length) {
-              const matchedChars = abbrevIndices.map((i) => match.value![i].toLowerCase()).join("")
-              if (matchedChars === queryLower) {
-                for (const idx of abbrevIndices) {
-                  if (!matchedIndices.includes(idx)) {
-                    matchedIndices.push(idx)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    // fzf provides positions as a Set
+    const matchedIndices = Array.from(result.positions).sort((a, b) => a - b)
 
     return {
       ...result.item,
       score: combinedScore,
       fuzzyScore,
       timeScore,
-      matchedIndices: matchedIndices.sort((a, b) => a - b),
+      matchedIndices,
     }
   })
 }
