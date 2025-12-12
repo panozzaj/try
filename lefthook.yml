@@ -1,0 +1,23 @@
+# Quiet by default, use LEFTHOOK_VERBOSE=1 for full output
+output:
+  - summary
+  - failure
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: prettier
+      glob: "*.{js,jsx,ts,tsx,json,css,md,yml,yaml}"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    - name: eslint
+      glob: "*.{js,jsx,ts,tsx}"
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
+
+    - name: typecheck
+      run: npx tsc --noEmit
+
+    - name: test
+      run: bun test

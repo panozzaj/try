@@ -1,35 +1,31 @@
-import React, { useState } from "react";
-import { Box, Text, useInput, useApp } from "ink";
-import type { TryEntry } from "../types.js";
+import React, { useState } from "react"
+import { Box, Text, useInput } from "ink"
+import type { TryEntry } from "../types.js"
 
 interface DeleteConfirmProps {
-  entry: TryEntry;
-  onConfirm: () => void;
-  onCancel: () => void;
+  entry: TryEntry
+  onConfirm: () => void
+  onCancel: () => void
 }
 
-export function DeleteConfirm({
-  entry,
-  onConfirm,
-  onCancel,
-}: DeleteConfirmProps) {
-  const [selected, setSelected] = useState<"cancel" | "delete">("cancel");
+export function DeleteConfirm({ entry, onConfirm, onCancel }: DeleteConfirmProps) {
+  const [selected, setSelected] = useState<"cancel" | "delete">("cancel")
 
   useInput((input, key) => {
     if (key.escape || input === "n" || input === "N") {
-      onCancel();
+      onCancel()
     } else if (input === "y" || input === "Y") {
-      onConfirm();
+      onConfirm()
     } else if (key.leftArrow || key.rightArrow || input === "h" || input === "l") {
-      setSelected((prev) => (prev === "cancel" ? "delete" : "cancel"));
+      setSelected((prev) => (prev === "cancel" ? "delete" : "cancel"))
     } else if (key.return) {
       if (selected === "delete") {
-        onConfirm();
+        onConfirm()
       } else {
-        onCancel();
+        onCancel()
       }
     }
-  });
+  })
 
   return (
     <Box flexDirection="column" paddingY={1}>
@@ -46,18 +42,12 @@ export function DeleteConfirm({
       </Box>
       <Box marginTop={1} gap={2}>
         <Box>
-          <Text
-            color={selected === "cancel" ? "cyan" : "gray"}
-            bold={selected === "cancel"}
-          >
+          <Text color={selected === "cancel" ? "cyan" : "gray"} bold={selected === "cancel"}>
             {selected === "cancel" ? "[Cancel]" : " Cancel "}
           </Text>
         </Box>
         <Box>
-          <Text
-            color={selected === "delete" ? "red" : "gray"}
-            bold={selected === "delete"}
-          >
+          <Text color={selected === "delete" ? "red" : "gray"} bold={selected === "delete"}>
             {selected === "delete" ? "[Delete]" : " Delete "}
           </Text>
         </Box>
@@ -66,5 +56,5 @@ export function DeleteConfirm({
         <Text color="gray">y/n or ←→ to select, enter to confirm</Text>
       </Box>
     </Box>
-  );
+  )
 }

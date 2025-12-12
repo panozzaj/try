@@ -1,4 +1,4 @@
-import type { ShellType } from "../types.js";
+import type { ShellType } from "../types.js"
 
 /**
  * Generate shell initialization script
@@ -11,11 +11,11 @@ export function generateShellInit(shell: ShellType): string {
   switch (shell) {
     case "bash":
     case "zsh":
-      return generateBashZshInit();
+      return generateBashZshInit()
     case "fish":
-      return generateFishInit();
+      return generateFishInit()
     default:
-      throw new Error(`Unsupported shell: ${shell}`);
+      throw new Error(`Unsupported shell: ${shell}`)
   }
 }
 
@@ -34,7 +34,7 @@ try() {
 
   return $exit_code
 }
-`;
+`
 }
 
 function generateFishInit(): string {
@@ -51,21 +51,21 @@ function try
 
   return $exit_code
 end
-`;
+`
 }
 
 /**
  * Detect the current shell from environment
  */
 export function detectShell(): ShellType {
-  const shell = process.env.SHELL || "";
+  const shell = process.env.SHELL || ""
 
   if (shell.includes("zsh")) {
-    return "zsh";
+    return "zsh"
   } else if (shell.includes("fish")) {
-    return "fish";
+    return "fish"
   } else {
-    return "bash";
+    return "bash"
   }
 }
 
@@ -74,6 +74,6 @@ export function detectShell(): ShellType {
  */
 export function generateCdCommand(dirPath: string): string {
   // Escape single quotes in path
-  const escapedPath = dirPath.replace(/'/g, "'\\''");
-  return `cd '${escapedPath}'`;
+  const escapedPath = dirPath.replace(/'/g, "'\\''")
+  return `cd '${escapedPath}'`
 }

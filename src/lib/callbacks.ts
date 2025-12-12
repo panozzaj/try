@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
-import type { TryConfig, CallbackHook, CallbackResult } from "../types.js";
+import { spawn } from "node:child_process"
+import * as fs from "node:fs"
+import * as path from "node:path"
+import * as os from "node:os"
+import type { TryConfig, CallbackHook, CallbackResult } from "../types.js"
 
 /**
  * Execute a callback script
@@ -18,7 +18,7 @@ export async function executeCallback(
   hook: CallbackHook,
   dirPath: string
 ): Promise<CallbackResult> {
-  const callbackScript = config.callbacks?.[hook];
+  const callbackScript = config.callbacks?.[hook]
 
   if (!callbackScript) {
     return {
@@ -26,39 +26,36 @@ export async function executeCallback(
       exitCode: 0,
       stdout: "",
       stderr: "",
-    };
+    }
   }
 
-  const script = expandCallbackPath(callbackScript);
+  const script = expandCallbackPath(callbackScript)
 
   return new Promise((resolve) => {
     // Determine if it's a file path or inline script
-    const isFilePath =
-      script.startsWith("/") ||
-      script.startsWith("~") ||
-      script.startsWith("./");
+    const isFilePath = script.startsWith("/") || script.startsWith("~") || script.startsWith("./")
 
-    let command: string;
-    let args: string[];
+    let command: string
+    let args: string[]
 
     if (isFilePath) {
       // It's a path to an executable
-      const expandedPath = expandPath(script);
+      const expandedPath = expandPath(script)
       if (!fs.existsSync(expandedPath)) {
         resolve({
           success: false,
           exitCode: 127,
           stdout: "",
           stderr: `Callback script not found: ${expandedPath}`,
-        });
-        return;
+        })
+        return
       }
-      command = expandedPath;
-      args = [dirPath];
+      command = expandedPath
+      args = [dirPath]
     } else {
       // It's an inline script - run with bash
-      command = "/bin/bash";
-      args = ["-c", script, "--", dirPath];
+      command = "/bin/bash"
+      args = ["-c", script, "--", dirPath]
     }
 
     const child = spawn(command, args, {
@@ -69,18 +66,18 @@ export async function executeCallback(
         TRY_HOOK: hook,
       },
       stdio: ["ignore", "pipe", "pipe"],
-    });
+    })
 
-    let stdout = "";
-    let stderr = "";
+    let stdout = ""
+    let stderr = ""
 
     child.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
+      stdout += data.toString()
+    })
 
     child.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
+      stderr += data.toString()
+    })
 
     child.on("error", (error) => {
       resolve({
@@ -88,8 +85,8 @@ export async function executeCallback(
         exitCode: 1,
         stdout,
         stderr: stderr + error.message,
-      });
-    });
+      })
+    })
 
     child.on("close", (code) => {
       resolve({
@@ -97,9 +94,9 @@ export async function executeCallback(
         exitCode: code ?? 1,
         stdout,
         stderr,
-      });
-    });
-  });
+      })
+    })
+  })
 }
 
 /**
@@ -107,9 +104,9 @@ export async function executeCallback(
  */
 function expandCallbackPath(script: string): string {
   if (script.startsWith("~/")) {
-    return path.join(os.homedir(), script.slice(2));
+    return path.join(os.homedir(), script.slice(2))
   }
-  return script;
+  return script
 }
 
 /**
@@ -117,16 +114,16 @@ function expandCallbackPath(script: string): string {
  */
 function expandPath(p: string): string {
   if (p.startsWith("~/")) {
-    return path.join(os.homedir(), p.slice(2));
+    return path.join(os.homedir(), p.slice(2))
   }
-  return p;
+  return p
 }
 
 /**
  * Check if a hook has a callback configured
  */
 export function hasCallback(config: TryConfig, hook: CallbackHook): boolean {
-  return !!config.callbacks?.[hook];
+  return !!config.callbacks?.[hook]
 }
 
 /**
@@ -138,28 +135,25 @@ export async function runBeforeDelete(
   dirPath: string
 ): Promise<{ proceed: boolean; message?: string }> {
   if (!hasCallback(config, "before_delete")) {
-    return { proceed: true };
+    return { proceed: true }
   }
 
-  const result = await executeCallback(config, "before_delete", dirPath);
+  const result = await executeCallback(config, "before_delete", dirPath)
 
   if (!result.success) {
     return {
       proceed: false,
       message: result.stderr || `Callback exited with code ${result.exitCode}`,
-    };
+    }
   }
 
-  return { proceed: true };
+  return { proceed: true }
 }
 
 /**
  * Run an init action command
  */
-export async function runInitAction(
-  command: string,
-  dirPath: string
-): Promise<CallbackResult> {
+export async function runInitAction(command: string, dirPath: string): Promise<CallbackResult> {
   return new Promise((resolve) => {
     const child = spawn("/bin/bash", ["-c", command, "--", dirPath], {
       cwd: dirPath,
@@ -168,18 +162,18 @@ export async function runInitAction(
         TRY_DIR: dirPath,
       },
       stdio: ["ignore", "pipe", "pipe"],
-    });
+    })
 
-    let stdout = "";
-    let stderr = "";
+    let stdout = ""
+    let stderr = ""
 
     child.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
+      stdout += data.toString()
+    })
 
     child.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
+      stderr += data.toString()
+    })
 
     child.on("error", (error) => {
       resolve({
@@ -187,8 +181,8 @@ export async function runInitAction(
         exitCode: 1,
         stdout,
         stderr: stderr + error.message,
-      });
-    });
+      })
+    })
 
     child.on("close", (code) => {
       resolve({
@@ -196,7 +190,7 @@ export async function runInitAction(
         exitCode: code ?? 1,
         stdout,
         stderr,
-      });
-    });
-  });
+      })
+    })
+  })
 }
