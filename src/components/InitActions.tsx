@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { Box, Text, useInput } from "ink"
 import type { InitAction } from "../types.js"
+import { KeyboardHints } from "./KeyboardHints.js"
 
 interface InitActionsProps {
   actions: Record<string, InitAction>
@@ -71,15 +72,15 @@ export function InitActions({ actions, onConfirm, onSkip }: InitActionsProps) {
         )
       })}
 
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="cyan">space</Text>
-        <Text color="gray"> toggle </Text>
-        <Text color="cyan">a</Text>
-        <Text color="gray"> all </Text>
-        <Text color="cyan">enter</Text>
-        <Text color="gray"> run </Text>
-        <Text color="cyan">s/esc</Text>
-        <Text color="gray"> skip</Text>
+      <Box marginTop={1}>
+        <KeyboardHints
+          hints={[
+            { key: "space", action: "toggle" },
+            { key: "a", action: "all" },
+            { key: "enter", action: "run" },
+            { key: "s/esc", action: "skip" },
+          ]}
+        />
       </Box>
     </Box>
   )

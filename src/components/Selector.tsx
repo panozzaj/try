@@ -6,6 +6,7 @@ import { scoreEntries, createDirName } from "../lib/scoring.js"
 import { SearchInput } from "./SearchInput.js"
 import { DirList } from "./DirList.js"
 import { DeleteConfirm } from "./DeleteConfirm.js"
+import { KeyboardHints } from "./KeyboardHints.js"
 
 interface SelectorProps {
   config: TryConfig
@@ -113,15 +114,15 @@ export function Selector({ config, onResult }: SelectorProps) {
         </Box>
       )}
 
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="cyan">↑↓</Text>
-        <Text color="gray"> navigate </Text>
-        <Text color="cyan">enter</Text>
-        <Text color="gray"> select </Text>
-        <Text color="cyan">ctrl+d</Text>
-        <Text color="gray"> delete </Text>
-        <Text color="cyan">esc</Text>
-        <Text color="gray"> cancel</Text>
+      <Box marginTop={1}>
+        <KeyboardHints
+          hints={[
+            { key: "↑↓", action: "navigate" },
+            { key: "enter", action: "select" },
+            { key: "ctrl+d", action: "delete" },
+            { key: "esc", action: "cancel" },
+          ]}
+        />
       </Box>
     </Box>
   )
