@@ -6,6 +6,19 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 
 ```bash
 bun install
+```
+
+**Option A: Development mode** (runs source directly, changes take effect immediately):
+
+```bash
+echo '#!/usr/bin/env bash
+exec bun run '"$(pwd)"'/src/cli.tsx "$@"' > ~/.local/bin/try-ink
+chmod +x ~/.local/bin/try-ink
+```
+
+**Option B: Built mode** (faster startup, requires rebuild after changes):
+
+```bash
 bun run build
 ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try-ink
 ```
