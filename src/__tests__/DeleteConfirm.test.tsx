@@ -4,6 +4,18 @@ import { render } from "ink-testing-library"
 import { DeleteConfirm } from "../components/DeleteConfirm.js"
 import type { TryEntry } from "../types.js"
 
+// Terminal key codes for stdin.write()
+const keys = {
+  escape: "\x1B",
+  enter: "\r",
+  backspace: "\x7F",
+  tab: "\t",
+  up: "\x1B[A",
+  down: "\x1B[B",
+  left: "\x1B[D",
+  right: "\x1B[C",
+} as const
+
 const createEntry = (name: string): TryEntry => ({
   path: `/home/user/tries/${name}`,
   name,
@@ -41,11 +53,9 @@ describe("DeleteConfirm", () => {
       <DeleteConfirm entry={entry} onConfirm={onConfirm} onCancel={onCancel} />
     )
 
-    // Wait for ink to initialize
     await wait(100)
 
-    // Send escape key
-    stdin.write("\x1B")
+    stdin.write(keys.escape)
     await wait()
 
     expect(onCancel).toHaveBeenCalled()
@@ -63,10 +73,9 @@ describe("DeleteConfirm", () => {
 
     await wait(100)
 
-    // Type wrong name and press enter
     stdin.write("wrong-name")
     await wait()
-    stdin.write("\r")
+    stdin.write(keys.enter)
     await wait()
 
     expect(onConfirm).not.toHaveBeenCalled()
@@ -84,12 +93,9 @@ describe("DeleteConfirm", () => {
 
     await wait(100)
 
-    // Type correct name
     stdin.write("2025-12-12-test")
     await wait()
-
-    // Press enter
-    stdin.write("\r")
+    stdin.write(keys.enter)
     await wait()
 
     expect(onConfirm).toHaveBeenCalled()
@@ -128,8 +134,7 @@ describe("DeleteConfirm", () => {
     await wait()
     expect(lastFrame()).toContain("abc")
 
-    // Send backspace (DEL character)
-    stdin.write("\x7F")
+    stdin.write(keys.backspace)
     await wait()
 
     const frame = lastFrame()!
