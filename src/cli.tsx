@@ -1,7 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import React from "react";
 import { render } from "ink";
 import { program } from "commander";
+import * as fs from "node:fs";
 import { Selector } from "./components/Selector.js";
 import { InitActions } from "./components/InitActions.js";
 import { loadConfig, ensureTriesDir } from "./lib/config.js";
@@ -15,12 +16,57 @@ import type { SelectorResult, ShellType, TryConfig } from "./types.js";
 const config = loadConfig();
 
 /**
+ * Get a TTY stream for Ink rendering.
+ *
+ * When running via shell wrapper, stdout is captured for eval and stderr
+ * is redirected to /dev/tty. But our process still sees stderr as a pipe,
+ * not a TTY. Ink requires a real TTY stream with resize event support.
+ *
+ * Solution: Open /dev/tty directly as a writable stream.
+ */
+function getTtyStream(): NodeJS.WriteStream {
+  // If stderr is already a TTY (direct invocation), use it
+  if (process.stderr.isTTY) {
+    return process.stderr;
+  }
+
+  // Otherwise, open /dev/tty directly for TTY output
+  // This works when running via shell wrapper where stderr goes to /dev/tty
+  try {
+    const ttyFd = fs.openSync("/dev/tty", "w");
+    const ttyStream = fs.createWriteStream("", { fd: ttyFd }) as unknown as NodeJS.WriteStream;
+
+    // Add TTY properties that Ink expects
+    ttyStream.isTTY = true;
+
+    // Get terminal size from the TTY
+    const size = process.stdout.isTTY
+      ? [process.stdout.columns, process.stdout.rows]
+      : [80, 24]; // fallback
+
+    (ttyStream as any).columns = size[0];
+    (ttyStream as any).rows = size[1];
+
+    return ttyStream;
+  } catch {
+    // Fallback to stderr if /dev/tty isn't available
+    return process.stderr;
+  }
+}
+
+/**
  * Show init actions selector and run selected actions
+ *
+ * Note: We render to stderr because stdout is captured by the shell wrapper.
+ * The shell function runs `try cd` and evals the stdout (cd command).
+ * UI must go to stderr, which gets redirected to /dev/tty by the wrapper.
  */
 async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
   if (!cfg.init_actions || Object.keys(cfg.init_actions).length === 0) {
     return;
   }
+
+  const ttyStream = getTtyStream();
 
   return new Promise((resolve) => {
     const { unmount } = render(
@@ -42,7 +88,8 @@ async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
           unmount();
           resolve();
         }}
-      />
+      />,
+      { stdout: ttyStream }
     );
   });
 }
@@ -98,17 +145,22 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
 
 /**
  * Run the interactive selector
+ *
+ * Renders to a TTY stream - see getTtyStream comment for explanation.
  */
 function runSelector(): Promise<SelectorResult> {
+  const ttyStream = getTtyStream();
+
   return new Promise((resolve) => {
-    const { unmount, waitUntilExit } = render(
+    const { unmount } = render(
       <Selector
         config={config}
         onResult={(result) => {
           unmount();
           resolve(result);
         }}
-      />
+      />,
+      { stdout: ttyStream }
     );
   });
 }
