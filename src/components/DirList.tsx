@@ -125,7 +125,7 @@ export function DirList({
                 isSelected={isSelected}
               />
             </Box>
-            <Text color="gray"> {formatRelativeTime(entry.accessedAt)}</Text>
+            <Text color="gray"> {formatRelativeTime(entry.modifiedAt)}</Text>
           </Box>
         );
       })}

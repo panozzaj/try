@@ -27,17 +27,19 @@ export function todayPrefix(): string {
 }
 
 /**
- * Calculate time-based score (recently accessed = higher score)
+ * Calculate time-based score (recently modified = higher score)
+ * Uses mtime (modification time) not atime, since atime gets updated on reads.
+ * We explicitly touch directories on selection to update mtime.
  * Returns a value between 0 and 1
  */
-export function calculateTimeScore(accessedAt: Date): number {
+export function calculateTimeScore(modifiedAt: Date): number {
   const now = Date.now();
-  const accessed = accessedAt.getTime();
-  const hoursSinceAccess = (now - accessed) / (1000 * 60 * 60);
+  const modified = modifiedAt.getTime();
+  const hoursSinceModified = (now - modified) / (1000 * 60 * 60);
 
-  // Decay function: score drops to ~0.5 after 24 hours, ~0.1 after a week
-  // Using exponential decay with a half-life of about 24 hours
-  return Math.exp(-hoursSinceAccess / 24);
+  // Match tobi/try's scoring: 3.0 / sqrt(hours + 1)
+  // Normalize to 0-1 range (3.0 is max when hours=0)
+  return Math.min(1, 3.0 / Math.sqrt(hoursSinceModified + 1) / 3.0);
 }
 
 /**
@@ -60,10 +62,10 @@ export function scoreEntries(
   query: string
 ): ScoredEntry[] {
   if (!query.trim()) {
-    // No query: sort by access time only
+    // No query: sort by modification time only
     return entries
       .map((entry) => {
-        const timeScore = calculateTimeScore(entry.accessedAt);
+        const timeScore = calculateTimeScore(entry.modifiedAt);
         return {
           ...entry,
           score: timeScore,
@@ -81,7 +83,7 @@ export function scoreEntries(
   return results.map((result) => {
     // Fuse score is 0 for perfect match, 1 for no match - invert it
     const fuzzyScore = 1 - (result.score ?? 0);
-    const timeScore = calculateTimeScore(result.item.accessedAt);
+    const timeScore = calculateTimeScore(result.item.modifiedAt);
 
     // Combine scores: fuzzy match is primary, time is secondary
     // Weight: 70% fuzzy, 30% time

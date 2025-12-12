@@ -52,7 +52,7 @@ describe("todayPrefix", () => {
 });
 
 describe("calculateTimeScore", () => {
-  it("returns 1 for just accessed", () => {
+  it("returns 1 for just modified", () => {
     const score = calculateTimeScore(new Date());
     expect(score).toBeCloseTo(1, 1);
   });
@@ -61,8 +61,8 @@ describe("calculateTimeScore", () => {
     const now = Date.now();
     const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
     const score = calculateTimeScore(oneDayAgo);
-    expect(score).toBeLessThan(0.5);
-    expect(score).toBeGreaterThan(0.3);
+    expect(score).toBeLessThan(0.7);
+    expect(score).toBeGreaterThan(0.1);
   });
 
   it("approaches zero for old entries", () => {
@@ -76,13 +76,13 @@ describe("calculateTimeScore", () => {
 describe("scoreEntries", () => {
   const createEntry = (
     name: string,
-    accessedAt: Date = new Date()
+    modifiedAt: Date = new Date()
   ): TryEntry => ({
     path: `/home/user/tries/${name}`,
     name,
     createdAt: new Date(),
-    accessedAt,
-    modifiedAt: new Date(),
+    accessedAt: new Date(),
+    modifiedAt,
     ...parseDatePrefix(name),
   });
 
