@@ -169,6 +169,16 @@ describe("scoreEntries", () => {
     }
   })
 
+  it("highlights abbreviations that match word starts", () => {
+    // "sr" should match "spaced-repetition" by matching "s" and "r" at word starts
+    const entries = [createEntry("2025-11-26-spaced-repetition")]
+    const scored = scoreEntries(entries, "sr")
+
+    expect(scored.length).toBe(1)
+    expect(scored[0].name).toBe("2025-11-26-spaced-repetition")
+    expect(scored[0].matchedIndices.length).toBeGreaterThan(0)
+  })
+
   it("returns empty array for no matches", () => {
     const entries = [createEntry("2025-12-12-foo")]
     const scored = scoreEntries(entries, "xyz123")

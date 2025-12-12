@@ -47,7 +47,7 @@ export function calculateTimeScore(modifiedAt: Date): number {
  */
 const FUSE_OPTIONS: IFuseOptions<TryEntry> = {
   keys: ["name", "baseName"],
-  threshold: 0.4,
+  threshold: 0.6, // Allow abbreviation matches like "sr" → "spaced-repetition"
   includeScore: true,
   includeMatches: true,
   ignoreLocation: true,
@@ -87,25 +87,47 @@ export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] 
     const combinedScore = fuzzyScore * 0.7 + timeScore * 0.3
 
     // Extract matched indices from Fuse results (only for "name" key)
-    // Only highlight the contiguous range that contains the full query
     const matchedIndices: number[] = []
     if (result.matches) {
       for (const match of result.matches) {
         // Only use indices from the "name" field, not "baseName"
         if (match.key === "name" && match.indices && match.value) {
           const queryLower = query.toLowerCase()
-          // Find the range that contains the full query string
+
+          // First, try to find a contiguous range containing the full query
+          let foundExactMatch = false
           for (const [start, end] of match.indices) {
             const slice = match.value.slice(start, end + 1).toLowerCase()
-            // Only include ranges that are at least as long as the query
-            // and contain the query as a substring
             if (slice.length >= queryLower.length && slice.includes(queryLower)) {
-              // Find where in the slice the query actually starts
+              // Found exact substring match - highlight only the query chars
               const queryStart = slice.indexOf(queryLower)
               for (let i = 0; i < queryLower.length; i++) {
                 const idx = start + queryStart + i
                 if (!matchedIndices.includes(idx)) {
                   matchedIndices.push(idx)
+                }
+              }
+              foundExactMatch = true
+            }
+          }
+
+          // If no exact match, use individual character matches (for abbreviations)
+          // Only include if total matched chars equals query length
+          if (!foundExactMatch) {
+            const abbrevIndices: number[] = []
+            for (const [start, end] of match.indices) {
+              for (let i = start; i <= end; i++) {
+                abbrevIndices.push(i)
+              }
+            }
+            // Verify the matched characters spell out the query
+            if (abbrevIndices.length === queryLower.length) {
+              const matchedChars = abbrevIndices.map((i) => match.value![i].toLowerCase()).join("")
+              if (matchedChars === queryLower) {
+                for (const idx of abbrevIndices) {
+                  if (!matchedIndices.includes(idx)) {
+                    matchedIndices.push(idx)
+                  }
                 }
               }
             }
