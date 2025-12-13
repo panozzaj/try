@@ -72,6 +72,9 @@ export function loadConfig(): TryConfig {
   const configFile = findConfigFile()
   const defaultConfig = getDefaultConfig()
 
+  // TRY_PATH env var always takes precedence (useful for testing)
+  const envPath = process.env.TRY_PATH
+
   if (!configFile) {
     return defaultConfig
   }
@@ -83,7 +86,7 @@ export function loadConfig(): TryConfig {
     return {
       ...defaultConfig,
       ...parsed,
-      path: expandPath(parsed.path ?? defaultConfig.path),
+      path: envPath || expandPath(parsed.path ?? defaultConfig.path),
     }
   } catch (error) {
     console.error(`Warning: Failed to parse config file ${configFile}:`, error)
