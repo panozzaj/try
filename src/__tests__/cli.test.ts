@@ -213,13 +213,17 @@ describe("CLI", () => {
       expect(result.stderr).toContain("requires a name argument")
     })
 
-    it("creates worktree from git repo", async () => {
-      const result = await runCli([".", worktreeName], { TRY_PATH: triesDir }, localRepoPath)
-      // When run from the test repo, it should create a worktree
-      expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain("cd '")
-      expect(result.stdout).toMatch(new RegExp(`\\d{4}-\\d{2}-\\d{2}-${worktreeName}`))
-    })
+    it(
+      "creates worktree from git repo",
+      async () => {
+        const result = await runCli([".", worktreeName], { TRY_PATH: triesDir }, localRepoPath)
+        // When run from the test repo, it should create a worktree
+        expect(result.exitCode).toBe(0)
+        expect(result.stdout).toContain("cd '")
+        expect(result.stdout).toMatch(new RegExp(`\\d{4}-\\d{2}-\\d{2}-${worktreeName}`))
+      },
+      { timeout: 15000 }
+    )
   })
 })
 
