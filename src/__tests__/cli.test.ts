@@ -225,20 +225,20 @@ describe("CLI", () => {
 
 describe("CLI with existing directories", () => {
   let testTriesDir: string
+  let triesPath: string
 
   beforeAll(async () => {
     testTriesDir = await mkdtemp(join(tmpdir(), "try-ink-test-"))
-    // Create some test directories
-    await mkdir(join(testTriesDir, "src", "tries"), { recursive: true })
-    await mkdir(join(testTriesDir, "src", "tries", "2025-01-15-test-project"))
-    await mkdir(join(testTriesDir, "src", "tries", "2025-01-14-another-project"))
-    await mkdir(join(testTriesDir, "src", "tries", "2024-12-01-old-project"))
+    triesPath = join(testTriesDir, "tries")
+    await mkdir(triesPath, { recursive: true })
+    await mkdir(join(triesPath, "2025-01-15-test-project"))
+    await mkdir(join(triesPath, "2025-01-14-another-project"))
   })
 
   afterAll(async () => {
     await rm(testTriesDir, { recursive: true, force: true })
   })
 
-  // Interactive tests would go here using ink-testing-library
-  // but those require more complex setup with TTY mocking
+  // Note: Full interactive tests would require ink-testing-library with TTY mocking.
+  // The directory existence checks are also tested in tries.test.ts at the lib level.
 })
