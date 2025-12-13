@@ -12,11 +12,16 @@ interface RunResult {
   exitCode: number
 }
 
-function runCli(args: string[], env: Record<string, string> = {}): Promise<RunResult> {
+function runCli(
+  args: string[],
+  env: Record<string, string> = {},
+  cwd?: string
+): Promise<RunResult> {
   return new Promise((resolve) => {
     const child = spawn("npx", ["tsx", CLI_PATH, ...args], {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, ...env },
+      cwd,
     })
 
     let stdout = ""
@@ -187,11 +192,8 @@ describe("CLI", () => {
     })
 
     it("creates worktree from git repo", async () => {
-      const result = await runCli([".", "my-worktree"], {
-        HOME: testTriesDir,
-        // Run from within the test git repo
-      })
-      // When run from try-ink repo, it should create a worktree
+      const result = await runCli([".", "my-worktree"], { HOME: testTriesDir }, localRepoPath)
+      // When run from the test repo, it should create a worktree
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("cd '")
       expect(result.stdout).toMatch(/\d{4}-\d{2}-\d{2}-my-worktree/)
