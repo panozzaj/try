@@ -53,39 +53,40 @@ function runCommand(command: string, args: string[], cwd?: string): Promise<Comm
 }
 
 /**
- * Extract repo name from git URL
+ * Extract user/repo from git URL and return as "user-repo"
  */
 export function extractRepoName(url: string): string {
   // Handle various URL formats:
-  // https://github.com/user/repo.git
-  // git@github.com:user/repo.git
-  // https://github.com/user/repo
-  // user/repo (GitHub shorthand)
+  // https://github.com/user/repo.git → user-repo
+  // git@github.com:user/repo.git → user-repo
+  // https://github.com/user/repo → user-repo
 
-  let name = url
+  let cleaned = url
 
   // Remove .git suffix
-  if (name.endsWith(".git")) {
-    name = name.slice(0, -4)
+  if (cleaned.endsWith(".git")) {
+    cleaned = cleaned.slice(0, -4)
   }
 
-  // Extract last path component
-  const lastSlash = name.lastIndexOf("/")
+  // https://github.com/user/repo
+  const httpsMatch = cleaned.match(/https?:\/\/[^/]+\/([^/]+)\/([^/]+)/)
+  if (httpsMatch) {
+    return `${httpsMatch[1]}-${httpsMatch[2]}`
+  }
+
+  // git@github.com:user/repo
+  const sshMatch = cleaned.match(/git@[^:]+:([^/]+)\/(.+)/)
+  if (sshMatch) {
+    return `${sshMatch[1]}-${sshMatch[2]}`
+  }
+
+  // Fallback: just use last path component
+  const lastSlash = cleaned.lastIndexOf("/")
   if (lastSlash !== -1) {
-    name = name.slice(lastSlash + 1)
+    return cleaned.slice(lastSlash + 1)
   }
 
-  // Handle git@host:user/repo format
-  const colonIndex = name.indexOf(":")
-  if (colonIndex !== -1 && !name.includes("/")) {
-    name = name.slice(colonIndex + 1)
-    const slash = name.lastIndexOf("/")
-    if (slash !== -1) {
-      name = name.slice(slash + 1)
-    }
-  }
-
-  return name
+  return cleaned
 }
 
 /**
@@ -156,11 +157,22 @@ export async function createWorktree(
 }
 
 /**
- * Check if we're currently in a git repository
+ * Check if a directory is inside a git repository
  */
-export async function isInGitRepo(): Promise<boolean> {
-  const result = await runCommand("git", ["rev-parse", "--git-dir"])
+export async function isInGitRepo(cwd?: string): Promise<boolean> {
+  const result = await runCommand("git", ["rev-parse", "--git-dir"], cwd)
   return result.success
+}
+
+/**
+ * Get the root directory of the git repository
+ */
+export async function getGitRoot(cwd?: string): Promise<string | null> {
+  const result = await runCommand("git", ["rev-parse", "--show-toplevel"], cwd)
+  if (result.success) {
+    return result.stdout.trim()
+  }
+  return null
 }
 
 /**
@@ -172,4 +184,41 @@ export async function getCurrentBranch(): Promise<string | null> {
     return result.stdout.trim()
   }
   return null
+}
+
+/**
+ * Create a detached worktree from a git repository
+ * This creates a worktree at HEAD without checking out a branch
+ */
+export async function createDetachedWorktree(
+  config: TryConfig,
+  repoPath: string,
+  name: string
+): Promise<{ success: boolean; path: string; error?: string }> {
+  const triesPath = expandPath(config.path)
+  const dirName = `${todayPrefix()}-${name}`
+  const fullPath = path.join(triesPath, dirName)
+
+  // Get the git root from the repo path
+  const gitRoot = await getGitRoot(repoPath)
+  if (!gitRoot) {
+    return {
+      success: false,
+      path: fullPath,
+      error: "Not a git repository",
+    }
+  }
+
+  // Create a detached worktree
+  const result = await runCommand("git", ["worktree", "add", "--detach", fullPath], gitRoot)
+
+  if (!result.success) {
+    return {
+      success: false,
+      path: fullPath,
+      error: result.stderr || "Worktree creation failed",
+    }
+  }
+
+  return { success: true, path: fullPath }
 }

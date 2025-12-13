@@ -8,7 +8,7 @@ import { InitActions } from "./components/InitActions.js"
 import { loadConfig, ensureTriesDir } from "./lib/config.js"
 import { createTryDir, deleteTryDir, touchTryDir } from "./lib/tries.js"
 import { executeCallback, runBeforeDelete, runInitAction } from "./lib/callbacks.js"
-import { cloneRepo } from "./lib/git.js"
+import { cloneRepo, isInGitRepo, createDetachedWorktree } from "./lib/git.js"
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
 import type { SelectorResult, ShellType, TryConfig } from "./types.js"
 
@@ -158,33 +158,39 @@ async function handleClone(url: string): Promise<void> {
 }
 
 /**
+ * Create a worktree from a git repository
+ * If not in a git repo, falls back to creating a regular directory
+ */
+async function handleWorktree(repoPath: string, name: string): Promise<void> {
+  ensureTriesDir(config)
+
+  const inGitRepo = await isInGitRepo(repoPath)
+
+  if (inGitRepo) {
+    const result = await createDetachedWorktree(config, repoPath, name)
+
+    if (!result.success) {
+      console.error(`Worktree failed: ${result.error}`)
+      process.exit(1)
+    }
+
+    console.error(`Created worktree from ${repoPath}`)
+    await executeCallback(config, "after_create", result.path)
+    console.log(generateCdCommand(result.path))
+  } else {
+    // Not a git repo, just create a regular directory
+    const fullPath = createTryDir(config, name)
+    await runInitActions(config, fullPath)
+    await executeCallback(config, "after_create", fullPath)
+    console.log(generateCdCommand(fullPath))
+  }
+}
+
+/**
  * Show configuration
  */
 function showConfig(): void {
-  console.log("Configuration:")
-  console.log(`  Path: ${config.path}`)
-  console.log(`  Init Actions:`)
-  if (config.init_actions && Object.keys(config.init_actions).length > 0) {
-    for (const [key, action] of Object.entries(config.init_actions)) {
-      console.log(`    ${key}: ${action.label}`)
-    }
-  } else {
-    console.log("    (none)")
-  }
-  console.log(`  Callbacks:`)
-  if (
-    config.callbacks &&
-    Object.keys(config.callbacks).some((k) => config.callbacks![k as keyof typeof config.callbacks])
-  ) {
-    for (const [hook, script] of Object.entries(config.callbacks)) {
-      if (script) {
-        const preview = script.length > 50 ? script.slice(0, 50) + "..." : script
-        console.log(`    ${hook}: ${preview.replace(/\n/g, "\\n")}`)
-      }
-    }
-  } else {
-    console.log("    (none)")
-  }
+  console.log(JSON.stringify(config, null, 2))
 }
 
 /**
@@ -197,6 +203,7 @@ Usage:
   try                     Interactive selector
   try <query>             Selector with search pre-filled
   try <git-url>           Clone repository into tries
+  try . <name>            Create worktree from current git repo
   try init [shell]        Output shell integration script
   try config              Show configuration
 
@@ -242,6 +249,21 @@ async function main(): Promise<void> {
   // Git URL → clone
   if (command && isGitUrl(command)) {
     await handleClone(command)
+    return
+  }
+
+  // Worktree: try . <name> or try ./path <name>
+  if (command && command.startsWith(".")) {
+    const repoPath = command === "." ? process.cwd() : command
+    const name = args.slice(1).join(" ")
+
+    if (!name) {
+      console.error("Error: 'try .' requires a name argument")
+      console.error("Usage: try . <name>")
+      process.exit(1)
+    }
+
+    await handleWorktree(repoPath, name)
     return
   }
 
