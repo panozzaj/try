@@ -18,9 +18,18 @@ function runCli(
   cwd?: string
 ): Promise<RunResult> {
   return new Promise((resolve) => {
+    // Remove git-related env vars that might interfere with git operations
+    // (e.g., GIT_INDEX_FILE set during git commit)
+    const cleanEnv = { ...process.env }
+    delete cleanEnv.GIT_INDEX_FILE
+    delete cleanEnv.GIT_DIR
+    delete cleanEnv.GIT_WORK_TREE
+    delete cleanEnv.GIT_AUTHOR_DATE
+    delete cleanEnv.GIT_COMMITTER_DATE
+
     const child = spawn("npx", ["tsx", CLI_PATH, ...args], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...env },
+      env: { ...cleanEnv, ...env },
       cwd,
     })
 
@@ -143,10 +152,21 @@ describe("CLI", () => {
 
   describe("worktree", () => {
     let localRepoPath: string
+    let worktreeName: string
+    let worktreeTestDir: string
+    let triesDir: string
 
     beforeAll(async () => {
+      // Use unique name to avoid conflicts between test runs
+      worktreeName = `worktree-test-${Date.now()}`
+
+      // Create a separate temp dir for worktree tests
+      worktreeTestDir = await mkdtemp(join(tmpdir(), "try-ink-worktree-"))
+      triesDir = join(worktreeTestDir, "tries")
+      await mkdir(triesDir, { recursive: true })
+
       // Create a local git repo for worktree testing
-      localRepoPath = join(testTriesDir, "worktree-source")
+      localRepoPath = join(worktreeTestDir, "worktree-source")
       await mkdir(localRepoPath, { recursive: true })
       const { spawn: spawnAsync } = await import("node:child_process")
       // Initialize a regular (non-bare) repo and make a commit
@@ -181,22 +201,24 @@ describe("CLI", () => {
         const child = spawnAsync("git", ["worktree", "prune"], { cwd: localRepoPath })
         child.on("close", () => resolve())
       })
+      // Clean up the temp directory
+      await rm(worktreeTestDir, { recursive: true, force: true })
     })
 
     it("shows error when no name provided with try .", async () => {
       const result = await runCli(["."], {
-        HOME: testTriesDir,
+        TRY_PATH: triesDir,
       })
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain("requires a name argument")
     })
 
     it("creates worktree from git repo", async () => {
-      const result = await runCli([".", "my-worktree"], { HOME: testTriesDir }, localRepoPath)
+      const result = await runCli([".", worktreeName], { TRY_PATH: triesDir }, localRepoPath)
       // When run from the test repo, it should create a worktree
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("cd '")
-      expect(result.stdout).toMatch(/\d{4}-\d{2}-\d{2}-my-worktree/)
+      expect(result.stdout).toMatch(new RegExp(`\\d{4}-\\d{2}-\\d{2}-${worktreeName}`))
     })
   })
 })

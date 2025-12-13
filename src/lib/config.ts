@@ -3,15 +3,29 @@ import * as path from "node:path"
 import * as os from "node:os"
 import type { TryConfig } from "../types.js"
 
-const DEFAULT_CONFIG: TryConfig = {
-  path: path.join(os.homedir(), "src", "tries"),
+/**
+ * Get the user's home directory, respecting HOME env var for testing
+ */
+function getHomeDir(): string {
+  return process.env.HOME || os.homedir()
+}
+
+/**
+ * Get the default config with the correct home directory
+ */
+function getDefaultConfig(): TryConfig {
+  // TRY_PATH env var allows overriding the tries directory (useful for testing)
+  const triesPath = process.env.TRY_PATH || path.join(getHomeDir(), "src", "tries")
+  return {
+    path: triesPath,
+  }
 }
 
 /**
  * Possible config file locations in order of preference
  */
 export function getConfigPaths(): string[] {
-  const home = os.homedir()
+  const home = getHomeDir()
   return [path.join(home, ".tryrc.json"), path.join(home, ".config", "try", "config.json")]
 }
 
@@ -56,9 +70,10 @@ export function expandPath(p: string): string {
  */
 export function loadConfig(): TryConfig {
   const configFile = findConfigFile()
+  const defaultConfig = getDefaultConfig()
 
   if (!configFile) {
-    return DEFAULT_CONFIG
+    return defaultConfig
   }
 
   try {
@@ -66,13 +81,13 @@ export function loadConfig(): TryConfig {
     const parsed = parseConfig(content)
 
     return {
-      ...DEFAULT_CONFIG,
+      ...defaultConfig,
       ...parsed,
-      path: expandPath(parsed.path ?? DEFAULT_CONFIG.path),
+      path: expandPath(parsed.path ?? defaultConfig.path),
     }
   } catch (error) {
     console.error(`Warning: Failed to parse config file ${configFile}:`, error)
-    return DEFAULT_CONFIG
+    return defaultConfig
   }
 }
 
