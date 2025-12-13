@@ -5,9 +5,10 @@ import * as fs from "node:fs"
 import * as tty from "node:tty"
 import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
-import { loadConfig, ensureTriesDir } from "./lib/config.js"
+import { TemplateSelector } from "./components/TemplateSelector.js"
+import { loadConfig, ensureTriesDir, expandPath } from "./lib/config.js"
 import { createTryDir, deleteTryDir, touchTryDir } from "./lib/tries.js"
-import { executeCallback, runBeforeDelete, runInitAction } from "./lib/callbacks.js"
+import { executeCallback, runBeforeDelete, runInitAction, runTemplate } from "./lib/callbacks.js"
 import { cloneRepo, isInGitRepo, createDetachedWorktree } from "./lib/git.js"
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
 import type { SelectorResult, ShellType, TryConfig } from "./types.js"
@@ -82,6 +83,63 @@ async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
 }
 
 /**
+ * Show template selector and return selected template key (or null for empty dir)
+ */
+async function selectTemplate(cfg: TryConfig): Promise<string | null | "cancel"> {
+  if (!cfg.templates || Object.keys(cfg.templates).length === 0) {
+    return null
+  }
+
+  const ttyStream = getTtyStream()
+
+  return new Promise((resolve) => {
+    const { unmount } = render(
+      <TemplateSelector
+        templates={cfg.templates!}
+        onSelect={(templateKey) => {
+          unmount()
+          resolve(templateKey)
+        }}
+        onCancel={() => {
+          unmount()
+          resolve("cancel")
+        }}
+      />,
+      { stdout: ttyStream }
+    )
+  })
+}
+
+/**
+ * Create a new try directory, optionally using a template
+ * Note: `name` is already the full dir name with date prefix (from Selector)
+ */
+async function createWithTemplate(
+  cfg: TryConfig,
+  name: string,
+  templateKey: string | null
+): Promise<string> {
+  const triesPath = expandPath(cfg.path)
+  const fullPath = `${triesPath}/${name}`
+
+  if (templateKey && cfg.templates?.[templateKey]) {
+    const command = cfg.templates[templateKey]
+    console.error(`Running template: ${templateKey}`)
+    const result = await runTemplate(command, triesPath, fullPath)
+    if (!result.success) {
+      console.error(`Template failed: ${result.stderr}`)
+      process.exit(1)
+    }
+  } else {
+    // Create empty directory - createTryDir expects the base name without date prefix
+    // but we have the full name, so use fs.mkdirSync directly
+    fs.mkdirSync(fullPath, { recursive: true })
+  }
+
+  return fullPath
+}
+
+/**
  * Handle the result from the selector UI
  */
 async function handleSelectorResult(result: SelectorResult): Promise<void> {
@@ -94,7 +152,13 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
     }
 
     case "create": {
-      const fullPath = createTryDir(config, result.name)
+      // If templates are configured, let user choose one
+      const templateKey = await selectTemplate(config)
+      if (templateKey === "cancel") {
+        break
+      }
+
+      const fullPath = await createWithTemplate(config, result.name, templateKey)
       await runInitActions(config, fullPath)
       await executeCallback(config, "after_create", fullPath)
       console.log(generateCdCommand(fullPath))
@@ -111,6 +175,23 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
 
       deleteTryDir(result.entry.path)
       console.error(`Deleted: ${result.entry.name}`)
+      break
+    }
+
+    case "promote": {
+      const sourcePath = result.entry.path
+      const targetPath = result.targetPath
+
+      // Check if target already exists
+      if (fs.existsSync(targetPath)) {
+        console.error(`Error: Target already exists: ${targetPath}`)
+        process.exit(1)
+      }
+
+      // Move the directory
+      fs.renameSync(sourcePath, targetPath)
+      console.error(`Promoted: ${result.entry.name} → ${targetPath}`)
+      console.log(generateCdCommand(targetPath))
       break
     }
 
@@ -206,12 +287,6 @@ Usage:
   try . <name>            Create worktree from current git repo
   try init [shell]        Output shell integration script
   try config              Show configuration
-
-Keyboard:
-  ↑↓          Navigate
-  Enter       Select / Create new
-  Ctrl-D      Delete (requires typing name to confirm)
-  Esc         Cancel
 
 Shell integration:
   eval "$(try-ink init)"  Add to ~/.zshrc or ~/.bashrc`)

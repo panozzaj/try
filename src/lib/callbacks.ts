@@ -194,3 +194,86 @@ export async function runInitAction(command: string, dirPath: string): Promise<C
     })
   })
 }
+
+/**
+ * Extract base name from a dated directory name
+ * e.g., "2025-12-12-my-app" -> "my-app"
+ */
+function extractBaseName(dirName: string): string {
+  const match = dirName.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
+  return match ? match[1] : dirName
+}
+
+/**
+ * Convert a name to a valid identifier (underscore_case)
+ * e.g., "my-app" -> "my_app"
+ */
+function toIdentifier(name: string): string {
+  return name.replace(/-/g, "_")
+}
+
+/**
+ * Run a template command to scaffold a project
+ *
+ * Unlike init actions, templates run in the parent directory (tries path)
+ * and are expected to create the target directory themselves.
+ *
+ * The command receives:
+ *   $1 = directory name (e.g., "2025-12-12-myapp")
+ *   TRY_DIR = full path
+ *   TRY_NAME = directory name (e.g., "2025-12-12-myapp")
+ *   TRY_BASE = base name without date (e.g., "myapp")
+ *   TRY_ID = identifier-safe name (e.g., "my_app")
+ */
+export async function runTemplate(
+  command: string,
+  triesPath: string,
+  fullPath: string
+): Promise<CallbackResult> {
+  const dirName = path.basename(fullPath)
+  const baseName = extractBaseName(dirName)
+  const identifier = toIdentifier(baseName)
+
+  return new Promise((resolve) => {
+    const child = spawn("/bin/bash", ["-c", command, "--", dirName], {
+      cwd: triesPath,
+      env: {
+        ...process.env,
+        TRY_DIR: fullPath,
+        TRY_NAME: dirName,
+        TRY_BASE: baseName,
+        TRY_ID: identifier,
+      },
+      stdio: ["inherit", "pipe", "pipe"],
+    })
+
+    let stdout = ""
+    let stderr = ""
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString()
+    })
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString()
+    })
+
+    child.on("error", (error) => {
+      resolve({
+        success: false,
+        exitCode: 1,
+        stdout,
+        stderr: stderr + error.message,
+      })
+    })
+
+    child.on("close", (code) => {
+      resolve({
+        success: code === 0,
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+      })
+    })
+  })
+}
