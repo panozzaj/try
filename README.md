@@ -13,8 +13,8 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 
 **New in try-ink:**
 
-- Type directory name to confirm deletion (safer than y/n)
 - Init actions menu after creating directories
+- Type directory name to confirm deletion (safer than y/n)
 - JSON config format
 
 ## Install
