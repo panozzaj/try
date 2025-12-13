@@ -13,6 +13,8 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 
 **New in try-ink:**
 
+- Templates for project scaffolding (rails new, laravel new, etc.)
+- Promote directories to permanent locations (Ctrl+O)
 - Init actions menu after creating directories
 - Type directory name to confirm deletion (safer than y/n)
 - JSON config format
@@ -20,22 +22,15 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 ## Install
 
 ```bash
-bun install
+npm install
 ```
 
-**Option A: Development mode** (runs source directly, changes take effect immediately):
+**Development mode** (runs source directly, changes take effect immediately):
 
 ```bash
 echo '#!/usr/bin/env bash
 cd '"$(pwd)"' && exec npx tsx src/cli.tsx "$@"' > ~/.local/bin/try-ink
 chmod +x ~/.local/bin/try-ink
-```
-
-**Option B: Built mode** (faster startup, requires rebuild after changes):
-
-```bash
-bun run build
-ln -s "$(pwd)/dist/cli.js" ~/.local/bin/try-ink
 ```
 
 ## Shell integration
@@ -56,6 +51,7 @@ This creates a `try` shell function that wraps `try-ink`.
 try                                    # Interactive selector
 try foo                                # Selector with "foo" pre-filled
 try https://github.com/user/repo       # Clone repository
+try . my-feature                       # Create worktree from current git repo
 try config                             # Show configuration
 ```
 
@@ -82,15 +78,36 @@ Create `~/.tryrc.json` to customize:
     }
   },
   "templates": {
-    "rails": "rails new \"$1\" --skip-git"
+    "rails": "rails new \"$1\" --name \"$TRY_ID\" --skip-git",
+    "laravel": "laravel new \"$1\""
   }
 }
+```
+
+### Templates
+
+Templates let you scaffold new projects using generators like `rails new` or `laravel new`. When you create a new directory, you'll be prompted to choose a template (or "Empty directory").
+
+The command receives:
+
+- `$1` = directory name (e.g., `2025-12-12-myapp`)
+- `TRY_DIR` = full path
+- `TRY_NAME` = directory name (e.g., `2025-12-12-myapp`)
+- `TRY_BASE` = base name without date (e.g., `myapp`)
+- `TRY_ID` = identifier-safe name with underscores (e.g., `my_app`)
+
+Templates run in the tries directory and are expected to create the target directory themselves.
+
+For Rails, use `--name` to set the app name separately from the directory:
+
+```json
+"rails": "rails new \"$1\" --name \"$TRY_ID\" --skip-git"
 ```
 
 ## Development
 
 ```bash
-bun run dev      # Run directly
-bun test         # Run tests
-bun run build    # Build to dist/
+npm run dev      # Run directly
+npm test         # Run tests
+npm run build    # Build to dist/
 ```
