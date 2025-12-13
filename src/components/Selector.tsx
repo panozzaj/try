@@ -1,11 +1,14 @@
 import React, { useState, useMemo } from "react"
 import { Box, Text, useInput } from "ink"
+import * as path from "node:path"
 import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
 import { loadTries } from "../lib/tries.js"
 import { scoreEntries, createDirName } from "../lib/scoring.js"
+import { expandPath } from "../lib/config.js"
 import { SearchInput } from "./SearchInput.js"
 import { DirList } from "./DirList.js"
 import { DeleteConfirm } from "./DeleteConfirm.js"
+import { PromoteConfirm } from "./PromoteConfirm.js"
 import { KeyboardHints } from "./KeyboardHints.js"
 
 interface SelectorProps {
@@ -14,13 +17,14 @@ interface SelectorProps {
   initialQuery?: string
 }
 
-type Mode = "search" | "delete"
+type Mode = "search" | "delete" | "promote"
 
 export function Selector({ config, onResult, initialQuery = "" }: SelectorProps) {
   const [query, setQuery] = useState(initialQuery)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [mode, setMode] = useState<Mode>("search")
   const [deleteTarget, setDeleteTarget] = useState<TryEntry | null>(null)
+  const [promoteTarget, setPromoteTarget] = useState<TryEntry | null>(null)
 
   // Load and score entries
   const entries = useMemo(() => loadTries(config), [config])
@@ -64,6 +68,13 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
           setMode("delete")
         }
       }
+      // Promote entry (ctrl+o for "out")
+      else if (input === "o" && key.ctrl) {
+        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
+          setPromoteTarget(scoredEntries[selectedIndex])
+          setMode("promote")
+        }
+      }
       // Cancel/Exit
       else if (key.escape || (key.ctrl && input === "c")) {
         onResult({ action: "cancel" })
@@ -86,12 +97,44 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
     setDeleteTarget(null)
   }
 
+  // Promote confirmation handlers
+  const handlePromoteConfirm = (targetPath: string) => {
+    if (promoteTarget) {
+      onResult({ action: "promote", entry: promoteTarget, targetPath })
+    }
+    setMode("search")
+    setPromoteTarget(null)
+  }
+
+  const handlePromoteCancel = () => {
+    setMode("search")
+    setPromoteTarget(null)
+  }
+
+  // Calculate default promote target path
+  const getDefaultPromoteTarget = (entry: TryEntry): string => {
+    const triesPath = expandPath(config.path)
+    const parentDir = path.dirname(triesPath)
+    return path.join(parentDir, entry.baseName)
+  }
+
   if (mode === "delete" && deleteTarget) {
     return (
       <DeleteConfirm
         entry={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+    )
+  }
+
+  if (mode === "promote" && promoteTarget) {
+    return (
+      <PromoteConfirm
+        entry={promoteTarget}
+        defaultTarget={getDefaultPromoteTarget(promoteTarget)}
+        onConfirm={handlePromoteConfirm}
+        onCancel={handlePromoteCancel}
       />
     )
   }
@@ -121,6 +164,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
             { key: "↑↓", action: "navigate" },
             { key: "enter", action: "select" },
             { key: "ctrl+d", action: "delete" },
+            { key: "ctrl+o", action: "promote" },
             { key: "esc", action: "cancel" },
           ]}
         />

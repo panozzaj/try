@@ -79,6 +79,7 @@ export type SelectorResult =
   | { action: "select"; entry: TryEntry }
   | { action: "create"; name: string }
   | { action: "delete"; entry: TryEntry }
+  | { action: "promote"; entry: TryEntry; targetPath: string }
   | { action: "cancel" }
 
 /**
