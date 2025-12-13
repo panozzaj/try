@@ -122,6 +122,12 @@ async function createWithTemplate(
   const triesPath = expandPath(cfg.path)
   const fullPath = `${triesPath}/${name}`
 
+  // Check if directory already exists
+  if (fs.existsSync(fullPath)) {
+    console.error(`Error: Directory already exists: ${fullPath}`)
+    process.exit(1)
+  }
+
   if (templateKey && cfg.templates?.[templateKey]) {
     const command = cfg.templates[templateKey]
     console.error(`Running template: ${templateKey}`)
@@ -131,8 +137,6 @@ async function createWithTemplate(
       process.exit(1)
     }
   } else {
-    // Create empty directory - createTryDir expects the base name without date prefix
-    // but we have the full name, so use fs.mkdirSync directly
     fs.mkdirSync(fullPath, { recursive: true })
   }
 
