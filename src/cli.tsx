@@ -231,6 +231,7 @@ function runSelector(initialQuery: string = ""): Promise<SelectorResult> {
 async function handleClone(url: string): Promise<void> {
   ensureTriesDir(config)
 
+  console.error(`Cloning ${url}...`)
   const result = await cloneRepo(config, { url })
 
   if (!result.success) {
