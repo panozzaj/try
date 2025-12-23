@@ -11,7 +11,16 @@ interface InitActionsProps {
 
 export function InitActions({ actions, onConfirm, onSkip }: InitActionsProps) {
   const actionKeys = Object.keys(actions)
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => {
+    // Pre-select actions marked as default
+    const defaults = new Set<string>()
+    for (const key of actionKeys) {
+      if (actions[key].default) {
+        defaults.add(key)
+      }
+    }
+    return defaults
+  })
   const [cursorIndex, setCursorIndex] = useState(0)
 
   useInput((input, key) => {

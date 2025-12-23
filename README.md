@@ -70,11 +70,13 @@ Create `~/.tryrc.json` to customize:
   "init_actions": {
     "git": {
       "label": "git init",
-      "command": "git init \"$1\""
+      "command": "git init \"$1\"",
+      "default": true
     },
     "jj": {
       "label": "jj git init --colocate",
-      "command": "jj git init --colocate \"$1\""
+      "command": "jj git init --colocate \"$1\"",
+      "default": true
     }
   },
   "templates": {

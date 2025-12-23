@@ -20,6 +20,8 @@ export interface InitAction {
   label: string
   /** Shell command to run ($1 = directory path) */
   command: string
+  /** Whether this action is selected by default */
+  default?: boolean
 }
 
 /**
