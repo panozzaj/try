@@ -80,7 +80,7 @@ Create `~/.tryrc.json` to customize:
     }
   },
   "templates": {
-    "rails": "rails new \"$1\" --name \"$TRY_ID\" --skip-git",
+    "rails": "rails new \"$1\" --name \"$TRY_ID\"",
     "laravel": "laravel new \"$1\""
   }
 }
@@ -103,7 +103,7 @@ Templates run in the tries directory and are expected to create the target direc
 For Rails, use `--name` to set the app name separately from the directory:
 
 ```json
-"rails": "rails new \"$1\" --name \"$TRY_ID\" --skip-git"
+"rails": "rails new \"$1\" --name \"$TRY_ID\""
 ```
 
 ## Development
