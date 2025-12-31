@@ -54,7 +54,11 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
       }
       // Select current entry
       else if (key.return) {
-        if (selectedIndex === createNewIndex) {
+        // Exit if user types "exit" or "q"
+        const trimmedQuery = query.trim().toLowerCase()
+        if (trimmedQuery === "exit" || trimmedQuery === "q") {
+          onResult({ action: "cancel" })
+        } else if (selectedIndex === createNewIndex) {
           // Create new directory
           onResult({ action: "create", name: createDirName(query) })
         } else if (scoredEntries.length > 0 && selectedIndex < scoredEntries.length) {
