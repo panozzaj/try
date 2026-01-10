@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react"
 import { Box, Text, useInput } from "ink"
 import * as path from "node:path"
+import { execSync } from "node:child_process"
 import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
 import { loadTries } from "../lib/tries.js"
 import { scoreEntries, createDirName } from "../lib/scoring.js"
@@ -8,8 +9,21 @@ import { expandPath } from "../lib/config.js"
 import { SearchInput } from "./SearchInput.js"
 import { DirList } from "./DirList.js"
 import { DeleteConfirm } from "./DeleteConfirm.js"
+import { ArchiveConfirm } from "./ArchiveConfirm.js"
 import { PromoteConfirm } from "./PromoteConfirm.js"
 import { KeyboardHints } from "./KeyboardHints.js"
+
+/**
+ * Copy text to clipboard (macOS)
+ */
+function copyToClipboard(text: string): boolean {
+  try {
+    execSync("pbcopy", { input: text })
+    return true
+  } catch {
+    return false
+  }
+}
 
 interface SelectorProps {
   config: TryConfig
@@ -17,14 +31,16 @@ interface SelectorProps {
   initialQuery?: string
 }
 
-type Mode = "search" | "delete" | "promote"
+type Mode = "search" | "delete" | "archive" | "promote"
 
 export function Selector({ config, onResult, initialQuery = "" }: SelectorProps) {
   const [query, setQuery] = useState(initialQuery)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [mode, setMode] = useState<Mode>("search")
   const [deleteTarget, setDeleteTarget] = useState<TryEntry | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<TryEntry | null>(null)
   const [promoteTarget, setPromoteTarget] = useState<TryEntry | null>(null)
+  const [copiedPath, setCopiedPath] = useState<string | null>(null)
 
   // Load and score entries
   const entries = useMemo(() => loadTries(config), [config])
@@ -79,6 +95,23 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
           setMode("promote")
         }
       }
+      // Archive entry (ctrl+a)
+      else if (input === "a" && key.ctrl) {
+        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
+          setArchiveTarget(scoredEntries[selectedIndex])
+          setMode("archive")
+        }
+      }
+      // Copy path to clipboard (ctrl+y for "yank")
+      else if (input === "y" && key.ctrl) {
+        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
+          const entry = scoredEntries[selectedIndex]
+          if (copyToClipboard(entry.path)) {
+            setCopiedPath(entry.path)
+            setTimeout(() => setCopiedPath(null), 1500)
+          }
+        }
+      }
       // Cancel/Exit
       else if (key.escape || (key.ctrl && input === "c")) {
         onResult({ action: "cancel" })
@@ -99,6 +132,20 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   const handleDeleteCancel = () => {
     setMode("search")
     setDeleteTarget(null)
+  }
+
+  // Archive confirmation handlers
+  const handleArchiveConfirm = () => {
+    if (archiveTarget) {
+      onResult({ action: "archive", entry: archiveTarget })
+    }
+    setMode("search")
+    setArchiveTarget(null)
+  }
+
+  const handleArchiveCancel = () => {
+    setMode("search")
+    setArchiveTarget(null)
   }
 
   // Promote confirmation handlers
@@ -128,6 +175,18 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
         entry={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+    )
+  }
+
+  if (mode === "archive" && archiveTarget) {
+    const archivePath = path.join(expandPath(config.path), "archive")
+    return (
+      <ArchiveConfirm
+        entry={archiveTarget}
+        archivePath={archivePath}
+        onConfirm={handleArchiveConfirm}
+        onCancel={handleArchiveCancel}
       />
     )
   }
@@ -167,12 +226,20 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
           hints={[
             { key: "↑↓", action: "navigate" },
             { key: "enter", action: "select" },
+            { key: "ctrl+y", action: "copy path" },
+            { key: "ctrl+a", action: "archive" },
             { key: "ctrl+d", action: "delete" },
             { key: "ctrl+o", action: "promote" },
             { key: "esc", action: "cancel" },
           ]}
         />
       </Box>
+
+      {copiedPath && (
+        <Box marginTop={1}>
+          <Text color="green">Copied: {copiedPath}</Text>
+        </Box>
+      )}
     </Box>
   )
 }
