@@ -24,9 +24,9 @@ function generateBashZshInit(): string {
 # Add to .bashrc/.zshrc: eval "$(try-ink init)"
 
 try() {
-  # Pass through help/version/config/init directly (don't eval their output)
+  # Pass through help/version/config/init/list directly (don't eval their output)
   case "$1" in
-    -h|--help|-V|--version|config|init)
+    -h|--help|-V|--version|-l|--list|config|init)
       try-ink "$@"
       return $?
       ;;
@@ -50,9 +50,9 @@ function generateFishInit(): string {
 # Add to ~/.config/fish/config.fish: try-ink init fish | source
 
 function try
-  # Pass through help/version/config/init directly (don't eval their output)
+  # Pass through help/version/config/init/list directly (don't eval their output)
   switch $argv[1]
-    case -h --help -V --version config init
+    case -h --help -V --version -l --list config init
       try-ink $argv
       return $status
   end
