@@ -7,7 +7,7 @@ import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
 import { TemplateSelector } from "./components/TemplateSelector.js"
 import { loadConfig, ensureTriesDir, expandPath } from "./lib/config.js"
-import { createTryDir, deleteTryDir, touchTryDir } from "./lib/tries.js"
+import { createTryDir, deleteTryDir, touchTryDir, loadTries } from "./lib/tries.js"
 import { executeCallback, runBeforeDelete, runInitAction, runTemplate } from "./lib/callbacks.js"
 import { cloneRepo, isInGitRepo, createDetachedWorktree } from "./lib/git.js"
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
@@ -182,6 +182,28 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
       break
     }
 
+    case "archive": {
+      const triesPath = expandPath(config.path)
+      const archiveDir = `${triesPath}/archive`
+
+      // Create archive directory if it doesn't exist
+      if (!fs.existsSync(archiveDir)) {
+        fs.mkdirSync(archiveDir, { recursive: true })
+      }
+
+      const targetPath = `${archiveDir}/${result.entry.name}`
+
+      // Check if target already exists
+      if (fs.existsSync(targetPath)) {
+        console.error(`Error: Already archived: ${targetPath}`)
+        process.exit(1)
+      }
+
+      fs.renameSync(result.entry.path, targetPath)
+      console.error(`Archived: ${result.entry.name}`)
+      break
+    }
+
     case "promote": {
       const sourcePath = result.entry.path
       const targetPath = result.targetPath
@@ -280,6 +302,28 @@ function showConfig(): void {
 }
 
 /**
+ * List try directories
+ * @param count - Number of entries to show (default 10)
+ * @param filter - Optional string to filter entries
+ */
+function listTries(count: number = 10, filter?: string): void {
+  const entries = loadTries(config)
+
+  // Sort by access time, most recent first
+  entries.sort((a, b) => b.accessedAt.getTime() - a.accessedAt.getTime())
+
+  // Filter if provided
+  let filtered = entries
+  if (filter) {
+    const lowerFilter = filter.toLowerCase()
+    filtered = entries.filter((e) => e.name.toLowerCase().includes(lowerFilter))
+  }
+
+  // Limit and output full paths
+  filtered.slice(0, count).forEach((e) => console.log(e.path))
+}
+
+/**
  * Show help
  */
 function showHelp(): void {
@@ -290,6 +334,7 @@ Usage:
   try <query>             Selector with search pre-filled
   try <git-url>           Clone repository into tries
   try . <name>            Create worktree from current git repo
+  try -l [filter] [n]     List tries (optionally filter, show n entries)
   try init [shell]        Output shell integration script
   try config              Show configuration
 
@@ -309,6 +354,27 @@ async function main(): Promise<void> {
 
   if (args.includes("-V") || args.includes("--version")) {
     console.log("0.1.0")
+    return
+  }
+
+  // Handle -l flag: list directories
+  if (args.includes("-l")) {
+    const lIndex = args.indexOf("-l")
+    const restArgs = args.slice(lIndex + 1)
+
+    let count = 10
+    let filter: string | undefined
+
+    for (const arg of restArgs) {
+      const num = parseInt(arg, 10)
+      if (!isNaN(num)) {
+        count = num
+      } else {
+        filter = arg
+      }
+    }
+
+    listTries(count, filter)
     return
   }
 
