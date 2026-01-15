@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react"
-import { Box, Text, useInput } from "ink"
+import { Box, Text, useInput, useStdout } from "ink"
 import * as path from "node:path"
 import { execSync } from "node:child_process"
 import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
@@ -41,6 +41,21 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   const [archiveTarget, setArchiveTarget] = useState<TryEntry | null>(null)
   const [promoteTarget, setPromoteTarget] = useState<TryEntry | null>(null)
   const [copiedPath, setCopiedPath] = useState<string | null>(null)
+  const [showHints, setShowHints] = useState<boolean | null>(null) // null = auto
+
+  const { stdout } = useStdout()
+  const terminalHeight = stdout?.rows ?? 24
+
+  // Auto-hide hints on small terminals (< 20 rows)
+  const isSmallTerminal = terminalHeight < 20
+  const hintsVisible = showHints === null ? !isSmallTerminal : showHints
+
+  // Calculate maxVisible based on terminal height
+  // Reserve space for: SearchInput(1) + margin(1) + overflow indicators(2) +
+  // Create option(2) + margin(1) + KeyboardHints(2) + copied msg(2) = ~11 lines
+  // If hints hidden, we get back ~3 lines
+  const reservedLines = hintsVisible ? 11 : 8
+  const maxVisible = Math.max(3, terminalHeight - reservedLines)
 
   // Load and score entries
   const entries = useMemo(() => loadTries(config), [config])
@@ -111,6 +126,10 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
             setTimeout(() => setCopiedPath(null), 1500)
           }
         }
+      }
+      // Toggle hints (ctrl+h)
+      else if (input === "h" && key.ctrl) {
+        setShowHints((prev) => (prev === null ? isSmallTerminal : !prev))
       }
       // Cancel/Exit
       else if (key.escape || (key.ctrl && input === "c")) {
@@ -209,7 +228,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
       <SearchInput value={query} onChange={handleQueryChange} />
 
       <Box marginTop={1}>
-        <DirList entries={scoredEntries} selectedIndex={selectedIndex} />
+        <DirList entries={scoredEntries} selectedIndex={selectedIndex} maxVisible={maxVisible} />
       </Box>
 
       {showCreateOption && (
@@ -221,19 +240,26 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
         </Box>
       )}
 
-      <Box marginTop={1}>
-        <KeyboardHints
-          hints={[
-            { key: "↑↓", action: "navigate" },
-            { key: "enter", action: "select" },
-            { key: "ctrl+y", action: "copy path" },
-            { key: "ctrl+a", action: "archive" },
-            { key: "ctrl+d", action: "delete" },
-            { key: "ctrl+o", action: "promote" },
-            { key: "esc", action: "cancel" },
-          ]}
-        />
-      </Box>
+      {hintsVisible ? (
+        <Box marginTop={1}>
+          <KeyboardHints
+            hints={[
+              { key: "↑↓", action: "navigate" },
+              { key: "enter", action: "select" },
+              { key: "ctrl+y", action: "copy path" },
+              { key: "ctrl+a", action: "archive" },
+              { key: "ctrl+d", action: "delete" },
+              { key: "ctrl+o", action: "promote" },
+              { key: "ctrl+h", action: "hide help" },
+              { key: "esc", action: "cancel" },
+            ]}
+          />
+        </Box>
+      ) : (
+        <Box marginTop={1}>
+          <Text color="gray">ctrl+h for help</Text>
+        </Box>
+      )}
 
       {copiedPath && (
         <Box marginTop={1}>

@@ -1,5 +1,5 @@
 import React from "react"
-import { Box, Text } from "ink"
+import { Box, Text, useStdout } from "ink"
 import type { ScoredEntry } from "../types.js"
 
 interface DirListProps {
@@ -77,6 +77,12 @@ function formatRelativeTime(date: Date): string {
 }
 
 export function DirList({ entries, selectedIndex, maxVisible = 10 }: DirListProps) {
+  const { stdout } = useStdout()
+  const terminalWidth = stdout?.columns ?? 80
+
+  // Calculate name column width: total - padding(2) - bullet(2) - space(1) - time(~12)
+  const nameWidth = Math.max(15, terminalWidth - 17)
+
   if (entries.length === 0) {
     return (
       <Box paddingLeft={2}>
@@ -112,7 +118,7 @@ export function DirList({ entries, selectedIndex, maxVisible = 10 }: DirListProp
         return (
           <Box key={entry.path} paddingLeft={2}>
             <Text color={isSelected ? "cyan" : "gray"}>{isSelected ? "● " : "  "}</Text>
-            <Box width={40}>
+            <Box width={nameWidth}>
               <HighlightedName
                 name={entry.name}
                 matchedIndices={entry.matchedIndices}
