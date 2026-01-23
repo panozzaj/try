@@ -87,8 +87,12 @@ export function detectShell(): ShellType {
 /**
  * Generate a cd command for shell evaluation
  */
-export function generateCdCommand(dirPath: string): string {
+export function generateCdCommand(dirPath: string, startupCommand?: string): string {
   // Escape single quotes in path
   const escapedPath = dirPath.replace(/'/g, "'\\''")
-  return `cd '${escapedPath}'`
+  const cd = `cd '${escapedPath}'`
+  if (startupCommand) {
+    return `${cd} && ${startupCommand}`
+  }
+  return cd
 }

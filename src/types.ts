@@ -10,6 +10,8 @@ export interface TryConfig {
   templates?: Record<string, string>
   /** Init actions shown after creating a new directory */
   init_actions?: Record<string, InitAction>
+  /** Command to run after cd'ing into a new directory (runs in parent shell) */
+  startup_command?: string
 }
 
 /**

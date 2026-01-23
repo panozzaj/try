@@ -6,6 +6,7 @@ import * as tty from "node:tty"
 import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
 import { TemplateSelector } from "./components/TemplateSelector.js"
+import { StartupConfirm } from "./components/StartupConfirm.js"
 import { loadConfig, ensureTriesDir, expandPath } from "./lib/config.js"
 import { createTryDir, deleteTryDir, touchTryDir, loadTries } from "./lib/tries.js"
 import { executeCallback, runBeforeDelete, runInitAction, runTemplate } from "./lib/callbacks.js"
@@ -75,6 +76,35 @@ async function runInitActions(cfg: TryConfig, dirPath: string): Promise<void> {
         onSkip={() => {
           unmount()
           resolve()
+        }}
+      />,
+      { stdout: ttyStream }
+    )
+  })
+}
+
+/**
+ * Ask user if they want to run the startup command
+ */
+async function confirmStartup(command: string): Promise<boolean> {
+  const ttyStream = getTtyStream()
+
+  // Skip confirmation if stdin is not a TTY (e.g., in tests or CI)
+  if (!process.stdin.isTTY) {
+    return false
+  }
+
+  return new Promise((resolve) => {
+    const { unmount } = render(
+      <StartupConfirm
+        command={command}
+        onConfirm={() => {
+          unmount()
+          resolve(true)
+        }}
+        onSkip={() => {
+          unmount()
+          resolve(false)
         }}
       />,
       { stdout: ttyStream }
@@ -165,7 +195,8 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
       const fullPath = await createWithTemplate(config, result.name, templateKey)
       await runInitActions(config, fullPath)
       await executeCallback(config, "after_create", fullPath)
-      console.log(generateCdCommand(fullPath))
+      const runStartup = config.startup_command && (await confirmStartup(config.startup_command))
+      console.log(generateCdCommand(fullPath, runStartup ? config.startup_command : undefined))
       break
     }
 
@@ -262,7 +293,8 @@ async function handleClone(url: string): Promise<void> {
   }
 
   await executeCallback(config, "after_clone", result.path)
-  console.log(generateCdCommand(result.path))
+  const runStartup = config.startup_command && (await confirmStartup(config.startup_command))
+  console.log(generateCdCommand(result.path, runStartup ? config.startup_command : undefined))
 }
 
 /**
@@ -284,13 +316,15 @@ async function handleWorktree(repoPath: string, name: string): Promise<void> {
 
     console.error(`Created worktree from ${repoPath}`)
     await executeCallback(config, "after_create", result.path)
-    console.log(generateCdCommand(result.path))
+    const runStartup = config.startup_command && (await confirmStartup(config.startup_command))
+    console.log(generateCdCommand(result.path, runStartup ? config.startup_command : undefined))
   } else {
     // Not a git repo, just create a regular directory
     const fullPath = createTryDir(config, name)
     await runInitActions(config, fullPath)
     await executeCallback(config, "after_create", fullPath)
-    console.log(generateCdCommand(fullPath))
+    const runStartup = config.startup_command && (await confirmStartup(config.startup_command))
+    console.log(generateCdCommand(fullPath, runStartup ? config.startup_command : undefined))
   }
 }
 
