@@ -85,6 +85,7 @@ export type SelectorResult =
   | { action: "delete"; entry: TryEntry }
   | { action: "archive"; entry: TryEntry }
   | { action: "promote"; entry: TryEntry; targetPath: string }
+  | { action: "rename"; entry: TryEntry; newName: string; renameClaudeProjects?: boolean }
   | { action: "cancel" }
 
 /**

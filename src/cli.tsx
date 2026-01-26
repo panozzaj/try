@@ -2,6 +2,7 @@
 import React from "react"
 import { render } from "ink"
 import * as fs from "node:fs"
+import * as os from "node:os"
 import * as tty from "node:tty"
 import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
@@ -249,6 +250,42 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
       fs.renameSync(sourcePath, targetPath)
       console.error(`Promoted: ${result.entry.name} → ${targetPath}`)
       console.log(generateCdCommand(targetPath))
+      break
+    }
+
+    case "rename": {
+      const triesPath = expandPath(config.path)
+      const sourcePath = fs.realpathSync(result.entry.path)
+      const targetPath = `${triesPath}/${result.newName}`
+      const cwd = fs.realpathSync(process.cwd())
+
+      // Check if target already exists
+      if (fs.existsSync(targetPath)) {
+        console.error(`Error: Target already exists: ${targetPath}`)
+        process.exit(1)
+      }
+
+      // Rename the directory
+      fs.renameSync(sourcePath, targetPath)
+      console.error(`Renamed: ${result.entry.name} → ${result.newName}`)
+
+      // Rename Claude projects folder if requested
+      if (result.renameClaudeProjects) {
+        const homeDir = os.homedir()
+        const oldClaudePath = `${homeDir}/.claude/projects${sourcePath.replace(/\//g, "-")}`
+        const newClaudePath = `${homeDir}/.claude/projects${targetPath.replace(/\//g, "-")}`
+
+        if (fs.existsSync(oldClaudePath)) {
+          fs.renameSync(oldClaudePath, newClaudePath)
+          console.error(`Renamed Claude projects folder`)
+        }
+      }
+
+      // If user was in the renamed directory, cd to new path
+      if (cwd === sourcePath || cwd.startsWith(sourcePath + "/")) {
+        const newCwd = cwd.replace(sourcePath, targetPath)
+        console.log(generateCdCommand(newCwd))
+      }
       break
     }
 
