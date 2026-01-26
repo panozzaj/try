@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react"
 import { Box, Text, useInput, useStdout } from "ink"
 import * as path from "node:path"
+import * as fs from "node:fs"
+import * as os from "node:os"
 import { execSync } from "node:child_process"
 import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
 import { loadTries } from "../lib/tries.js"
@@ -11,6 +13,7 @@ import { DirList } from "./DirList.js"
 import { DeleteConfirm } from "./DeleteConfirm.js"
 import { ArchiveConfirm } from "./ArchiveConfirm.js"
 import { PromoteConfirm } from "./PromoteConfirm.js"
+import { RenameConfirm } from "./RenameConfirm.js"
 import { KeyboardHints } from "./KeyboardHints.js"
 
 /**
@@ -25,13 +28,30 @@ function copyToClipboard(text: string): boolean {
   }
 }
 
+/**
+ * Get Claude projects folder path for a directory
+ */
+function getClaudeProjectsPath(dirPath: string): string {
+  const homeDir = os.homedir()
+  const encodedPath = dirPath.replace(/\//g, "-")
+  return path.join(homeDir, ".claude", "projects", encodedPath)
+}
+
+/**
+ * Check if Claude projects folder exists for a directory
+ */
+function hasClaudeProjectsFolder(dirPath: string): boolean {
+  const claudePath = getClaudeProjectsPath(dirPath)
+  return fs.existsSync(claudePath)
+}
+
 interface SelectorProps {
   config: TryConfig
   onResult: (result: SelectorResult) => void
   initialQuery?: string
 }
 
-type Mode = "search" | "delete" | "archive" | "promote"
+type Mode = "search" | "delete" | "archive" | "promote" | "rename"
 
 export function Selector({ config, onResult, initialQuery = "" }: SelectorProps) {
   const [query, setQuery] = useState(initialQuery)
@@ -40,6 +60,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   const [deleteTarget, setDeleteTarget] = useState<TryEntry | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<TryEntry | null>(null)
   const [promoteTarget, setPromoteTarget] = useState<TryEntry | null>(null)
+  const [renameTarget, setRenameTarget] = useState<TryEntry | null>(null)
   const [copiedPath, setCopiedPath] = useState<string | null>(null)
   const [showHints, setShowHints] = useState<boolean | null>(null) // null = auto
 
@@ -127,9 +148,21 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
           }
         }
       }
-      // Toggle hints (ctrl+h)
-      else if (input === "h" && key.ctrl) {
+      // Rename entry (ctrl+r)
+      else if (input === "r" && key.ctrl) {
+        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
+          setRenameTarget(scoredEntries[selectedIndex])
+          setMode("rename")
+        }
+      }
+      // Toggle hints (ctrl+?)
+      else if (input === "?") {
         setShowHints((prev) => (prev === null ? isSmallTerminal : !prev))
+      }
+      // Redraw screen (ctrl+l) - hidden shortcut
+      else if (input === "l" && key.ctrl) {
+        // Clear screen and trigger redraw by toggling a dummy state
+        stdout?.write("\x1B[2J\x1B[H")
       }
       // Cancel/Exit
       else if (key.escape || (key.ctrl && input === "c")) {
@@ -181,6 +214,20 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
     setPromoteTarget(null)
   }
 
+  // Rename confirmation handlers
+  const handleRenameConfirm = (newName: string, renameClaudeProjects: boolean) => {
+    if (renameTarget) {
+      onResult({ action: "rename", entry: renameTarget, newName, renameClaudeProjects })
+    }
+    setMode("search")
+    setRenameTarget(null)
+  }
+
+  const handleRenameCancel = () => {
+    setMode("search")
+    setRenameTarget(null)
+  }
+
   // Calculate default promote target path
   const getDefaultPromoteTarget = (entry: TryEntry): string => {
     const triesPath = expandPath(config.path)
@@ -221,6 +268,17 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
     )
   }
 
+  if (mode === "rename" && renameTarget) {
+    return (
+      <RenameConfirm
+        entry={renameTarget}
+        hasClaudeProjects={hasClaudeProjectsFolder(renameTarget.path)}
+        onConfirm={handleRenameConfirm}
+        onCancel={handleRenameCancel}
+      />
+    )
+  }
+
   const isCreateSelected = selectedIndex === createNewIndex
 
   return (
@@ -246,18 +304,20 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
             hints={[
               { key: "↑↓", action: "navigate" },
               { key: "enter", action: "select" },
-              { key: "ctrl+y", action: "copy path" },
+              { key: "ctrl+y", action: "copy" },
+              { key: "ctrl+r", action: "rename" },
               { key: "ctrl+a", action: "archive" },
               { key: "ctrl+d", action: "delete" },
               { key: "ctrl+o", action: "promote" },
-              { key: "ctrl+h", action: "hide help" },
+              { key: "?", action: "toggle help" },
               { key: "esc", action: "cancel" },
             ]}
+            rowBreaks={[5]}
           />
         </Box>
       ) : (
         <Box marginTop={1}>
-          <Text color="gray">ctrl+h for help</Text>
+          <Text color="gray">? for help</Text>
         </Box>
       )}
 
