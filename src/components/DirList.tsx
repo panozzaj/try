@@ -80,9 +80,6 @@ export function DirList({ entries, selectedIndex, maxVisible = 10 }: DirListProp
   const { stdout } = useStdout()
   const terminalWidth = stdout?.columns ?? 80
 
-  // Calculate name column width: total - padding(2) - bullet(2) - space(1) - time(~12)
-  const nameWidth = Math.max(15, terminalWidth - 17)
-
   if (entries.length === 0) {
     return (
       <Box paddingLeft={2}>
@@ -102,6 +99,13 @@ export function DirList({ entries, selectedIndex, maxVisible = 10 }: DirListProp
   }
 
   const visibleEntries = entries.slice(startIndex, endIndex)
+
+  // Calculate name column width based on visible entries
+  // Use the max name length among visible entries, with reasonable bounds
+  const maxNameLength = Math.max(...visibleEntries.map((e) => e.name.length))
+  // Ensure column fits in terminal: total - padding(2) - bullet(2) - space(1) - time(~12)
+  const maxAllowed = terminalWidth - 17
+  const nameWidth = Math.min(maxAllowed, Math.max(15, maxNameLength))
 
   return (
     <Box flexDirection="column">
@@ -125,7 +129,10 @@ export function DirList({ entries, selectedIndex, maxVisible = 10 }: DirListProp
                 isSelected={isSelected}
               />
             </Box>
-            <Text color="gray"> {formatRelativeTime(entry.modifiedAt)}</Text>
+            <Text color="gray">
+              {"  "}
+              {formatRelativeTime(entry.modifiedAt)}
+            </Text>
           </Box>
         )
       })}
