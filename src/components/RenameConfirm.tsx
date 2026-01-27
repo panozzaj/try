@@ -3,6 +3,8 @@ import { Box, Text, useInput } from "ink"
 import type { TryEntry } from "../types.js"
 import { KeyboardHints } from "./KeyboardHints.js"
 
+type Phase = "name" | "claude-confirm"
+
 interface RenameConfirmProps {
   entry: TryEntry
   hasClaudeProjects: boolean
@@ -18,40 +20,76 @@ export function RenameConfirm({
 }: RenameConfirmProps) {
   const [input, setInput] = useState(entry.name)
   const [cursorPos, setCursorPos] = useState(entry.name.length)
-  const [renameClaudeProjects, setRenameClaudeProjects] = useState(true)
+  const [phase, setPhase] = useState<Phase>("name")
+  const [pendingNewName, setPendingNewName] = useState("")
 
   useInput((char, key) => {
-    if (key.escape) {
-      onCancel()
-    } else if (key.return) {
-      if (input.trim() && input.trim() !== entry.name) {
-        onConfirm(input.trim(), hasClaudeProjects && renameClaudeProjects)
+    if (phase === "name") {
+      if (key.escape) {
+        onCancel()
+      } else if (key.return) {
+        if (input.trim() && input.trim() !== entry.name) {
+          if (hasClaudeProjects) {
+            setPendingNewName(input.trim())
+            setPhase("claude-confirm")
+          } else {
+            onConfirm(input.trim(), false)
+          }
+        }
+      } else if (key.backspace || key.delete) {
+        if (cursorPos > 0) {
+          setInput((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos))
+          setCursorPos((prev) => prev - 1)
+        }
+      } else if (key.leftArrow) {
+        setCursorPos((prev) => Math.max(0, prev - 1))
+      } else if (key.rightArrow) {
+        setCursorPos((prev) => Math.min(input.length, prev + 1))
+      } else if (key.ctrl && char === "a") {
+        setCursorPos(0)
+      } else if (key.ctrl && char === "e") {
+        setCursorPos(input.length)
+      } else if (key.ctrl && char === "k") {
+        setInput((prev) => prev.slice(0, cursorPos))
+      } else if (key.ctrl && char === "u") {
+        setInput((prev) => prev.slice(cursorPos))
+        setCursorPos(0)
+      } else if (char && !key.ctrl && !key.meta) {
+        setInput((prev) => prev.slice(0, cursorPos) + char + prev.slice(cursorPos))
+        setCursorPos((prev) => prev + 1)
       }
-    } else if (key.backspace || key.delete) {
-      if (cursorPos > 0) {
-        setInput((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos))
-        setCursorPos((prev) => prev - 1)
+    } else if (phase === "claude-confirm") {
+      if (key.escape || char === "n" || char === "N") {
+        onConfirm(pendingNewName, false)
+      } else if (key.return || char === "y" || char === "Y") {
+        onConfirm(pendingNewName, true)
       }
-    } else if (key.leftArrow) {
-      setCursorPos((prev) => Math.max(0, prev - 1))
-    } else if (key.rightArrow) {
-      setCursorPos((prev) => Math.min(input.length, prev + 1))
-    } else if (key.ctrl && char === "a") {
-      setCursorPos(0)
-    } else if (key.ctrl && char === "e") {
-      setCursorPos(input.length)
-    } else if (key.ctrl && char === "k") {
-      setInput((prev) => prev.slice(0, cursorPos))
-    } else if (key.ctrl && char === "u") {
-      setInput((prev) => prev.slice(cursorPos))
-      setCursorPos(0)
-    } else if (key.tab && hasClaudeProjects) {
-      setRenameClaudeProjects((prev) => !prev)
-    } else if (char && !key.ctrl && !key.meta) {
-      setInput((prev) => prev.slice(0, cursorPos) + char + prev.slice(cursorPos))
-      setCursorPos((prev) => prev + 1)
     }
   })
+
+  if (phase === "claude-confirm") {
+    return (
+      <Box flexDirection="column">
+        <Box marginBottom={1}>
+          <Text bold color="yellow">
+            Rename directory
+          </Text>
+        </Box>
+
+        <Box>
+          <Text dimColor>Renaming: </Text>
+          <Text>{entry.name}</Text>
+          <Text dimColor> → </Text>
+          <Text color="green">{pendingNewName}</Text>
+        </Box>
+
+        <Box marginTop={1}>
+          <Text>Also rename Claude Code projects folder? </Text>
+          <Text color="cyan">(Y/n)</Text>
+        </Box>
+      </Box>
+    )
+  }
 
   // Render input with cursor
   const beforeCursor = input.slice(0, cursorPos)
@@ -86,15 +124,6 @@ export function RenameConfirm({
       {!canConfirm && input.trim() === entry.name && (
         <Box marginTop={1}>
           <Text color="gray">(name unchanged)</Text>
-        </Box>
-      )}
-
-      {hasClaudeProjects && (
-        <Box marginTop={1}>
-          <Text color={renameClaudeProjects ? "green" : "gray"}>
-            {renameClaudeProjects ? "[x]" : "[ ]"} Also rename Claude Code projects folder
-          </Text>
-          <Text color="gray"> (tab to toggle)</Text>
         </Box>
       )}
 
