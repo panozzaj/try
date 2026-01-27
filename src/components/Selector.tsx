@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from "react"
 import { Box, Text, useInput, useStdout } from "ink"
 import * as path from "node:path"
-import * as fs from "node:fs"
-import * as os from "node:os"
 import { execSync } from "node:child_process"
 import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
 import { loadTries } from "../lib/tries.js"
 import { scoreEntries, createDirName } from "../lib/scoring.js"
 import { expandPath } from "../lib/config.js"
+import { hasClaudeProjectsFolder } from "../lib/claude-projects.js"
 import { SearchInput } from "./SearchInput.js"
 import { DirList } from "./DirList.js"
 import { DeleteConfirm } from "./DeleteConfirm.js"
@@ -26,23 +25,6 @@ function copyToClipboard(text: string): boolean {
   } catch {
     return false
   }
-}
-
-/**
- * Get Claude projects folder path for a directory
- */
-function getClaudeProjectsPath(dirPath: string): string {
-  const homeDir = os.homedir()
-  const encodedPath = dirPath.replace(/\//g, "-")
-  return path.join(homeDir, ".claude", "projects", encodedPath)
-}
-
-/**
- * Check if Claude projects folder exists for a directory
- */
-function hasClaudeProjectsFolder(dirPath: string): boolean {
-  const claudePath = getClaudeProjectsPath(dirPath)
-  return fs.existsSync(claudePath)
 }
 
 interface SelectorProps {

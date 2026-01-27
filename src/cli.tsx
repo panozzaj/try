@@ -2,7 +2,6 @@
 import React from "react"
 import { render } from "ink"
 import * as fs from "node:fs"
-import * as os from "node:os"
 import * as tty from "node:tty"
 import { Selector } from "./components/Selector.js"
 import { InitActions } from "./components/InitActions.js"
@@ -13,6 +12,7 @@ import { createTryDir, deleteTryDir, touchTryDir, loadTries } from "./lib/tries.
 import { executeCallback, runBeforeDelete, runInitAction, runTemplate } from "./lib/callbacks.js"
 import { cloneRepo, isInGitRepo, createDetachedWorktree } from "./lib/git.js"
 import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
+import { renameClaudeProjectsFolder } from "./lib/claude-projects.js"
 import type { SelectorResult, ShellType, TryConfig } from "./types.js"
 
 const config = loadConfig()
@@ -271,13 +271,13 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
 
       // Rename Claude projects folder if requested
       if (result.renameClaudeProjects) {
-        const homeDir = os.homedir()
-        const oldClaudePath = `${homeDir}/.claude/projects${sourcePath.replace(/\//g, "-")}`
-        const newClaudePath = `${homeDir}/.claude/projects${targetPath.replace(/\//g, "-")}`
-
-        if (fs.existsSync(oldClaudePath)) {
-          fs.renameSync(oldClaudePath, newClaudePath)
-          console.error(`Renamed Claude projects folder`)
+        const renameResult = renameClaudeProjectsFolder(sourcePath, targetPath)
+        if (!renameResult.success) {
+          console.error(`Warning: Could not rename Claude projects folder: ${renameResult.error}`)
+        } else if (renameResult.folderRenamed) {
+          console.error(
+            `Renamed Claude projects folder (${renameResult.filesModified} session files updated)`
+          )
         }
       }
 
