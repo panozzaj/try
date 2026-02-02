@@ -237,7 +237,7 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
     }
 
     case "promote": {
-      const sourcePath = result.entry.path
+      const sourcePath = fs.realpathSync(result.entry.path)
       const targetPath = result.targetPath
 
       // Check if target already exists
@@ -249,6 +249,19 @@ async function handleSelectorResult(result: SelectorResult): Promise<void> {
       // Move the directory
       fs.renameSync(sourcePath, targetPath)
       console.error(`Promoted: ${result.entry.name} → ${targetPath}`)
+
+      // Rename Claude projects folder if requested
+      if (result.renameClaudeProjects) {
+        const renameResult = renameClaudeProjectsFolder(sourcePath, targetPath)
+        if (!renameResult.success) {
+          console.error(`Warning: Could not rename Claude projects folder: ${renameResult.error}`)
+        } else if (renameResult.folderRenamed) {
+          console.error(
+            `Renamed Claude projects folder (${renameResult.filesModified} session files updated)`
+          )
+        }
+      }
+
       console.log(generateCdCommand(targetPath))
       break
     }

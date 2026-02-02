@@ -183,9 +183,9 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   }
 
   // Promote confirmation handlers
-  const handlePromoteConfirm = (targetPath: string) => {
+  const handlePromoteConfirm = (targetPath: string, renameClaudeProjects: boolean) => {
     if (promoteTarget) {
-      onResult({ action: "promote", entry: promoteTarget, targetPath })
+      onResult({ action: "promote", entry: promoteTarget, targetPath, renameClaudeProjects })
     }
     setMode("search")
     setPromoteTarget(null)
@@ -244,6 +244,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
       <PromoteConfirm
         entry={promoteTarget}
         defaultTarget={getDefaultPromoteTarget(promoteTarget)}
+        hasClaudeProjects={hasClaudeProjectsFolder(promoteTarget.path)}
         onConfirm={handlePromoteConfirm}
         onCancel={handlePromoteCancel}
       />

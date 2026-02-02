@@ -84,7 +84,7 @@ export type SelectorResult =
   | { action: "create"; name: string }
   | { action: "delete"; entry: TryEntry }
   | { action: "archive"; entry: TryEntry }
-  | { action: "promote"; entry: TryEntry; targetPath: string }
+  | { action: "promote"; entry: TryEntry; targetPath: string; renameClaudeProjects?: boolean }
   | { action: "rename"; entry: TryEntry; newName: string; renameClaudeProjects?: boolean }
   | { action: "cancel" }
 
