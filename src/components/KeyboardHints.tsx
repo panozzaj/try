@@ -16,36 +16,21 @@ export function KeyboardHints({ hints, rowBreaks }: KeyboardHintsProps) {
   const { stdout } = useStdout()
   const terminalWidth = stdout?.columns ?? 80
 
-  // Calculate width of each hint: " key action " + separator "│"
-  const hintWidths = hints.map((hint) => hint.key.length + hint.action.length + 4)
-
   // Account for border (2 chars) and paddingX (2 chars)
   const availableWidth = terminalWidth - 4
 
-  // If explicit row breaks provided, use those
-  let rows: KeyboardHint[][]
-  if (rowBreaks && rowBreaks.length > 0) {
-    rows = []
-    let startIdx = 0
-    for (const breakIdx of rowBreaks) {
-      rows.push(hints.slice(startIdx, breakIdx))
-      startIdx = breakIdx
-    }
-    if (startIdx < hints.length) {
-      rows.push(hints.slice(startIdx))
-    }
-  } else {
-    // Group hints into rows that fit within available width
-    rows = []
+  // Split a list of hints into rows that fit within available width
+  const splitToFitWidth = (hintList: KeyboardHint[]): KeyboardHint[][] => {
+    const result: KeyboardHint[][] = []
     let currentRow: KeyboardHint[] = []
     let currentRowWidth = 0
 
-    hints.forEach((hint, index) => {
-      const hintWidth = hintWidths[index]
-      const separatorWidth = currentRow.length > 0 ? 1 : 0 // pipe separator
+    hintList.forEach((hint) => {
+      const hintWidth = hint.key.length + hint.action.length + 4
+      const separatorWidth = currentRow.length > 0 ? 1 : 0
 
       if (currentRowWidth + hintWidth + separatorWidth > availableWidth && currentRow.length > 0) {
-        rows.push(currentRow)
+        result.push(currentRow)
         currentRow = [hint]
         currentRowWidth = hintWidth
       } else {
@@ -55,9 +40,29 @@ export function KeyboardHints({ hints, rowBreaks }: KeyboardHintsProps) {
     })
 
     if (currentRow.length > 0) {
-      rows.push(currentRow)
+      result.push(currentRow)
     }
+    return result
   }
+
+  // Build initial groups (from explicit breaks or all hints)
+  let groups: KeyboardHint[][]
+  if (rowBreaks && rowBreaks.length > 0) {
+    groups = []
+    let startIdx = 0
+    for (const breakIdx of rowBreaks) {
+      groups.push(hints.slice(startIdx, breakIdx))
+      startIdx = breakIdx
+    }
+    if (startIdx < hints.length) {
+      groups.push(hints.slice(startIdx))
+    }
+  } else {
+    groups = [hints]
+  }
+
+  // Further split each group to fit within terminal width
+  const rows: KeyboardHint[][] = groups.flatMap(splitToFitWidth)
 
   // Calculate row widths for alignment
   const rowWidths = rows.map((row) =>
