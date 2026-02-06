@@ -2,9 +2,15 @@ import React, { useState, useMemo } from "react"
 import { Box, Text, useInput, useStdout } from "ink"
 import * as path from "node:path"
 import { execSync } from "node:child_process"
-import type { TryConfig, TryEntry, SelectorResult } from "../types.js"
+import type { TryConfig, TryEntry, SelectorResult, SortMode } from "../types.js"
 import { loadTries } from "../lib/tries.js"
-import { scoreEntries, createDirName } from "../lib/scoring.js"
+import {
+  scoreEntries,
+  createDirName,
+  sortEntries,
+  SORT_MODES,
+  SORT_MODE_LABELS,
+} from "../lib/scoring.js"
 import { expandPath } from "../lib/config.js"
 import { hasClaudeProjectsFolder } from "../lib/claude-projects.js"
 import { SearchInput } from "./SearchInput.js"
@@ -45,6 +51,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   const [renameTarget, setRenameTarget] = useState<TryEntry | null>(null)
   const [copiedPath, setCopiedPath] = useState<string | null>(null)
   const [showHints, setShowHints] = useState<boolean | null>(null) // null = auto
+  const [sortMode, setSortMode] = useState<SortMode>("recent")
 
   const { stdout } = useStdout()
   const terminalHeight = stdout?.rows ?? 24
@@ -60,14 +67,18 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
   const reservedLines = hintsVisible ? 11 : 8
   const maxVisible = Math.max(3, terminalHeight - reservedLines)
 
-  // Load and score entries
+  // Load, score, and sort entries
   const entries = useMemo(() => loadTries(config), [config])
   const scoredEntries = useMemo(() => scoreEntries(entries, query), [entries, query])
+  const sortedEntries = useMemo(
+    () => sortEntries(scoredEntries, sortMode),
+    [scoredEntries, sortMode]
+  )
 
   // When there's a query, add "Create new" as the last option
   const showCreateOption = query.trim().length > 0
-  const totalItems = scoredEntries.length + (showCreateOption ? 1 : 0)
-  const createNewIndex = showCreateOption ? scoredEntries.length : -1
+  const totalItems = sortedEntries.length + (showCreateOption ? 1 : 0)
+  const createNewIndex = showCreateOption ? sortedEntries.length : -1
 
   // Reset selection when query changes
   const handleQueryChange = (newQuery: string) => {
@@ -95,35 +106,42 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
         } else if (selectedIndex === createNewIndex) {
           // Create new directory
           onResult({ action: "create", name: createDirName(query) })
-        } else if (scoredEntries.length > 0 && selectedIndex < scoredEntries.length) {
-          onResult({ action: "select", entry: scoredEntries[selectedIndex] })
+        } else if (sortedEntries.length > 0 && selectedIndex < sortedEntries.length) {
+          onResult({ action: "select", entry: sortedEntries[selectedIndex] })
         }
+      }
+      // Cycle sort mode (ctrl+s)
+      else if (input === "s" && key.ctrl) {
+        const currentIdx = SORT_MODES.indexOf(sortMode)
+        const nextIdx = (currentIdx + 1) % SORT_MODES.length
+        setSortMode(SORT_MODES[nextIdx])
+        setSelectedIndex(0)
       }
       // Delete entry
       else if (input === "d" && key.ctrl) {
-        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
-          setDeleteTarget(scoredEntries[selectedIndex])
+        if (selectedIndex < sortedEntries.length && sortedEntries.length > 0) {
+          setDeleteTarget(sortedEntries[selectedIndex])
           setMode("delete")
         }
       }
       // Promote entry (ctrl+o for "out")
       else if (input === "o" && key.ctrl) {
-        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
-          setPromoteTarget(scoredEntries[selectedIndex])
+        if (selectedIndex < sortedEntries.length && sortedEntries.length > 0) {
+          setPromoteTarget(sortedEntries[selectedIndex])
           setMode("promote")
         }
       }
       // Archive entry (ctrl+a)
       else if (input === "a" && key.ctrl) {
-        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
-          setArchiveTarget(scoredEntries[selectedIndex])
+        if (selectedIndex < sortedEntries.length && sortedEntries.length > 0) {
+          setArchiveTarget(sortedEntries[selectedIndex])
           setMode("archive")
         }
       }
       // Copy path to clipboard (ctrl+y for "yank")
       else if (input === "y" && key.ctrl) {
-        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
-          const entry = scoredEntries[selectedIndex]
+        if (selectedIndex < sortedEntries.length && sortedEntries.length > 0) {
+          const entry = sortedEntries[selectedIndex]
           if (copyToClipboard(entry.path)) {
             setCopiedPath(entry.path)
             setTimeout(() => setCopiedPath(null), 1500)
@@ -132,8 +150,8 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
       }
       // Rename entry (ctrl+r)
       else if (input === "r" && key.ctrl) {
-        if (selectedIndex < scoredEntries.length && scoredEntries.length > 0) {
-          setRenameTarget(scoredEntries[selectedIndex])
+        if (selectedIndex < sortedEntries.length && sortedEntries.length > 0) {
+          setRenameTarget(sortedEntries[selectedIndex])
           setMode("rename")
         }
       }
@@ -269,7 +287,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
       <SearchInput value={query} onChange={handleQueryChange} />
 
       <Box marginTop={1}>
-        <DirList entries={scoredEntries} selectedIndex={selectedIndex} maxVisible={maxVisible} />
+        <DirList entries={sortedEntries} selectedIndex={selectedIndex} maxVisible={maxVisible} />
       </Box>
 
       {showCreateOption && (
@@ -287,6 +305,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
             hints={[
               { key: "↑↓", action: "navigate" },
               { key: "enter", action: "select" },
+              { key: "ctrl+s", action: `sort: ${SORT_MODE_LABELS[sortMode]}` },
               { key: "ctrl+y", action: "copy" },
               { key: "ctrl+r", action: "rename" },
               { key: "ctrl+a", action: "archive" },
@@ -295,7 +314,7 @@ export function Selector({ config, onResult, initialQuery = "" }: SelectorProps)
               { key: "?", action: "toggle help" },
               { key: "esc", action: "cancel" },
             ]}
-            rowBreaks={[5]}
+            rowBreaks={[6]}
           />
         </Box>
       ) : (

@@ -109,6 +109,11 @@ export interface CallbackResult {
 }
 
 /**
+ * Sort modes for directory listing
+ */
+export type SortMode = "recent" | "name-desc" | "name-asc" | "label-asc" | "label-desc"
+
+/**
  * Shell types for init command
  */
 export type ShellType = "bash" | "zsh" | "fish"

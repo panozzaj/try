@@ -1,5 +1,5 @@
 import { Fzf, type FzfResultItem } from "fzf"
-import type { TryEntry, ScoredEntry } from "../types.js"
+import type { TryEntry, ScoredEntry, SortMode } from "../types.js"
 
 /**
  * Parse a date prefix from a directory name (e.g., "2025-12-12-my-experiment")
@@ -89,6 +89,44 @@ export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] 
       matchedIndices,
     }
   })
+}
+
+/**
+ * Sort mode cycle order and display labels
+ */
+export const SORT_MODES: SortMode[] = ["recent", "name-desc", "name-asc", "label-asc", "label-desc"]
+
+export const SORT_MODE_LABELS: Record<SortMode, string> = {
+  recent: "recent",
+  "name-desc": "name ↓",
+  "name-asc": "name ↑",
+  "label-asc": "label ↑",
+  "label-desc": "label ↓",
+}
+
+/**
+ * Re-sort scored entries by the given sort mode.
+ * "recent" preserves the default score-based order from scoreEntries.
+ */
+export function sortEntries(entries: ScoredEntry[], mode: SortMode): ScoredEntry[] {
+  if (mode === "recent") return entries
+
+  const sorted = [...entries]
+  switch (mode) {
+    case "name-desc":
+      sorted.sort((a, b) => b.name.localeCompare(a.name))
+      break
+    case "name-asc":
+      sorted.sort((a, b) => a.name.localeCompare(b.name))
+      break
+    case "label-asc":
+      sorted.sort((a, b) => a.baseName.localeCompare(b.baseName))
+      break
+    case "label-desc":
+      sorted.sort((a, b) => b.baseName.localeCompare(a.baseName))
+      break
+  }
+  return sorted
 }
 
 /**
