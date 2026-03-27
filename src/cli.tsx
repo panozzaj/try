@@ -399,7 +399,7 @@ function listTries(count: number = 10, filter?: string): void {
   // Filter if provided
   let filtered = entries
   if (filter) {
-    const lowerFilter = filter.toLowerCase()
+    const lowerFilter = filter.toLowerCase().replace(/ /g, "-")
     filtered = entries.filter((e) => e.name.toLowerCase().includes(lowerFilter))
   }
 

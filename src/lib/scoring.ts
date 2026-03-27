@@ -63,10 +63,12 @@ export function scoreEntries(entries: TryEntry[], query: string): ScoredEntry[] 
   }
 
   // Use fzf for subsequence matching (like the real fzf CLI)
+  // Replace spaces with hyphens so "my experiment" matches "my-experiment"
+  const normalizedQuery = query.replace(/ /g, "-")
   const fzf = new Fzf(entries, {
     selector: (entry) => entry.name,
   })
-  const results = fzf.find(query)
+  const results = fzf.find(normalizedQuery)
 
   return results.map((result: FzfResultItem<TryEntry>) => {
     // fzf score is higher = better match (opposite of Fuse.js)
