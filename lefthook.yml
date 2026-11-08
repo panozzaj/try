@@ -21,3 +21,20 @@ pre-commit:
 
     - name: test
       run: bun test
+
+# Keep dist/ fresh: ~/.local/bin/try-ink runs dist/cli.js (~0.1s) instead of
+# `npx tsx src/cli.tsx` (~0.6s), so rebuild whenever the source may have changed.
+post-commit:
+  jobs:
+    - name: build
+      run: bun run build
+
+post-merge:
+  jobs:
+    - name: build
+      run: bun run build
+
+post-checkout:
+  jobs:
+    - name: build
+      run: bun run build

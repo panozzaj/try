@@ -23,15 +23,29 @@ A TypeScript/React Ink clone of [tobi/try](https://github.com/tobi/try) - an int
 
 ```bash
 npm install
+npx lefthook install   # rebuilds dist/ after each commit, merge, and checkout
+bun run build
 ```
 
-**Development mode** (runs source directly, changes take effect immediately):
+**Built mode** (recommended, starts in ~0.1s):
 
 ```bash
 echo '#!/usr/bin/env bash
-cd '"$(pwd)"' && exec npx tsx src/cli.tsx "$@"' > ~/.local/bin/try-ink
+exec node '"$(pwd)"'/dist/cli.js "$@"' > ~/.local/bin/try-ink
 chmod +x ~/.local/bin/try-ink
 ```
+
+The lefthook hooks keep `dist/` current. After editing source without committing, run `bun run build`.
+
+**Development mode** (runs source directly, so changes take effect immediately, but each run takes ~0.6s to start):
+
+```bash
+echo '#!/usr/bin/env bash
+exec '"$(pwd)"'/node_modules/.bin/tsx '"$(pwd)"'/src/cli.tsx "$@"' > ~/.local/bin/try-ink
+chmod +x ~/.local/bin/try-ink
+```
+
+Neither wrapper should `cd` into this repo, since `try .` acts on the directory you run it from.
 
 ## Shell integration
 
@@ -44,6 +58,12 @@ eval "$(try-ink init)"
 ```
 
 This creates a `try` shell function that wraps `try-ink`.
+
+For tab completion of try directory names, also add:
+
+```bash
+eval "$(try-ink completions)"
+```
 
 ## Usage
 
