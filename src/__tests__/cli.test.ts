@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { spawn } from "node:child_process"
 import { mkdtemp, rm, mkdir } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 
 const CLI_PATH = join(import.meta.dir, "../cli.tsx")
@@ -26,6 +26,10 @@ function runCli(
     delete cleanEnv.GIT_WORK_TREE
     delete cleanEnv.GIT_AUTHOR_DATE
     delete cleanEnv.GIT_COMMITTER_DATE
+
+    // Tests that override HOME would otherwise break asdf shims (npx, node),
+    // which look for their installs under $HOME/.asdf
+    cleanEnv.ASDF_DATA_DIR ??= join(homedir(), ".asdf")
 
     const child = spawn("npx", ["tsx", CLI_PATH, ...args], {
       stdio: ["ignore", "pipe", "pipe"],
