@@ -520,6 +520,18 @@ async function main(): Promise<void> {
   ensureTriesDir(config)
   const initialQuery = args.join(" ")
 
+  // Exact directory name match → skip the UI and select directly
+  if (initialQuery) {
+    const triesPath = expandPath(config.path)
+    const exactPath = `${triesPath}/${initialQuery}`
+    if (fs.existsSync(exactPath) && fs.statSync(exactPath).isDirectory()) {
+      touchTryDir(exactPath)
+      await executeCallback(config, "after_select", exactPath)
+      console.log(generateCdCommand(exactPath))
+      return
+    }
+  }
+
   const result = await runSelector(initialQuery)
   await handleSelectorResult(result)
 }
