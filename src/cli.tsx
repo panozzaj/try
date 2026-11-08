@@ -11,7 +11,12 @@ import { loadConfig, ensureTriesDir, expandPath } from "./lib/config.js"
 import { createTryDir, deleteTryDir, touchTryDir, loadTries } from "./lib/tries.js"
 import { executeCallback, runBeforeDelete, runInitAction, runTemplate } from "./lib/callbacks.js"
 import { cloneRepo, isInGitRepo, createDetachedWorktree } from "./lib/git.js"
-import { generateShellInit, detectShell, generateCdCommand } from "./lib/shell.js"
+import {
+  generateShellInit,
+  generateCompletions,
+  detectShell,
+  generateCdCommand,
+} from "./lib/shell.js"
 import { renameClaudeProjectsFolder } from "./lib/claude-projects.js"
 import type { SelectorResult, ShellType, TryConfig } from "./types.js"
 
@@ -420,10 +425,12 @@ Usage:
   try . <name>            Create worktree from current git repo
   try -l [filter] [n]     List tries (optionally filter, show n entries)
   try init [shell]        Output shell integration script
+  try completions [shell] Output shell completions script
   try config              Show configuration
 
 Shell integration:
-  eval "$(try-ink init)"  Add to ~/.zshrc or ~/.bashrc`)
+  eval "$(try-ink init)"          Add to ~/.zshrc or ~/.bashrc
+  eval "$(try-ink completions)"   Tab completions for try directories`)
 }
 
 // Main
@@ -471,6 +478,18 @@ async function main(): Promise<void> {
     return
   }
 
+  if (command === "completions") {
+    const shellType: ShellType = (args[1] as ShellType) || detectShell()
+    console.log(generateCompletions(shellType))
+    return
+  }
+
+  if (command === "_completions-path") {
+    const triesPath = expandPath(config.path)
+    console.log(triesPath)
+    return
+  }
+
   if (command === "config") {
     showConfig()
     return
@@ -500,6 +519,7 @@ async function main(): Promise<void> {
   // Default: interactive selector (with optional initial query)
   ensureTriesDir(config)
   const initialQuery = args.join(" ")
+
   const result = await runSelector(initialQuery)
   await handleSelectorResult(result)
 }
